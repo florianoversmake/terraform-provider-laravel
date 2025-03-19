@@ -235,9 +235,7 @@ func extractIntSliceFromList(list types.List) []int64 {
 
 func convertIntSliceToList(ints []int64) types.List {
 	var values []int64
-	for _, i := range ints {
-		values = append(values, i)
-	}
+	values = append(values, ints...)
 	list, _ := types.ListValueFrom(context.Background(), types.Int64Type, values)
 	return list
 }
