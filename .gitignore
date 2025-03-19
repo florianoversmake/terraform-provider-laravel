@@ -38,3 +38,5 @@ website/vendor
 tf-test/
 
 repomix-output.md
+
+terraform-provider-laravel
