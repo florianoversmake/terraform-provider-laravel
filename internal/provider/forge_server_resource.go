@@ -381,7 +381,12 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 
 	networkElements := make([]int64, 0)
 	for _, v := range plan.Network.Elements() {
-		networkElements = append(networkElements, (v.(types.Int64)).ValueInt64())
+		if intValue, ok := v.(types.Int64); ok {
+			networkElements = append(networkElements, intValue.ValueInt64())
+		} else {
+			resp.Diagnostics.AddError("Invalid type in network elements", "Expected types.Int64 but got a different type")
+			return
+		}
 	}
 
 	payload := forge_client.CreateServerRequest{
