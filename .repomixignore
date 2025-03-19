@@ -1,0 +1,16 @@
+# Add patterns to ignore here, one per line
+# Example:
+# *.log
+# tmp/
+bup/
+docs/
+.github/
+.copywrite.hcl
+.gitignore
+CHANGELOG.md
+GNUmakefile
+go.mod
+go.sum
+LICENSE
+terraform-provider-laravel
+terraform-registry-manifest.json
