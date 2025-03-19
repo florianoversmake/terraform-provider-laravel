@@ -19,7 +19,7 @@ type IntegrationDaemon struct {
 	CreatedAt    string `json:"created_at"`
 }
 
-// Horizon
+// Horizon.
 type HorizonStatus struct {
 	Enabled          bool               `json:"enabled"`
 	Daemon           *IntegrationDaemon `json:"daemon"`
@@ -51,7 +51,7 @@ func (c *Client) DisableHorizon(ctx context.Context, serverID, siteID int) error
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
-// Octane
+// Octane.
 type OctaneStatus struct {
 	Enabled         bool               `json:"enabled"`
 	Daemon          *IntegrationDaemon `json:"daemon"`
@@ -89,7 +89,7 @@ func (c *Client) DisableOctane(ctx context.Context, serverID, siteID int) error 
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
-// Reverb
+// Reverb.
 type ReverbStatus struct {
 	Enabled           bool               `json:"enabled"`
 	Daemon            *IntegrationDaemon `json:"daemon"`
@@ -134,7 +134,7 @@ func (c *Client) DisableReverb(ctx context.Context, serverID, siteID int) error 
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
-// Pulse
+// Pulse.
 type PulseStatus struct {
 	Enabled        bool               `json:"enabled"`
 	Daemon         *IntegrationDaemon `json:"daemon"`
@@ -166,7 +166,7 @@ func (c *Client) DisablePulse(ctx context.Context, serverID, siteID int) error {
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
-// Inertia
+// Inertia.
 type InertiaStatus struct {
 	Enabled          bool               `json:"enabled"`
 	Daemon           *IntegrationDaemon `json:"daemon"`
@@ -203,7 +203,7 @@ func (c *Client) DisableInertia(ctx context.Context, serverID, siteID int) error
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
-// Laravel Maintenance
+// Laravel Maintenance.
 type LaravelMaintenanceStatus struct {
 	Enabled          bool    `json:"enabled"`
 	Status           *string `json:"status"`
@@ -235,7 +235,7 @@ func (c *Client) DisableLaravelMaintenance(ctx context.Context, serverID, siteID
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
-// Laravel Scheduler
+// Laravel Scheduler.
 type LaravelSchedulerStatus struct {
 	Enabled bool `json:"enabled"`
 	Job     *struct {
@@ -287,7 +287,7 @@ func (c *Client) DisableLaravelScheduler(ctx context.Context, serverID, siteID i
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
-// Composer Packages Authentication
+// Composer Packages Authentication.
 type ComposerCredentialsResponse struct {
 	Credentials map[string]map[string]string `json:"credentials"`
 }

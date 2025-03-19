@@ -152,7 +152,7 @@ func filterCredentials(credentials []forge_client.Credential, filters []Filter) 
 	return filtered
 }
 
-// Helper function to check if a value matches any filter criteria
+// Helper function to check if a value matches any filter criteria.
 func matchesFilter(value string, filterValues []types.String) bool {
 	for _, v := range filterValues {
 		if value == v.ValueString() {

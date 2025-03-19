@@ -12,13 +12,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// providerConfig contains the configured client connections
+// providerConfig contains the configured client connections.
 type providerConfig struct {
 	Forge   *forge_client.Client
 	Envoyer *envoyer_client.Client
 }
 
-// createProviderConfig creates and configures the API clients based on provider configuration
+// createProviderConfig creates and configures the API clients based on provider configuration.
 func createProviderConfig(ctx context.Context, config LaravelProviderModel) (*providerConfig, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
