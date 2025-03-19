@@ -1,3 +1,5 @@
+// Copyright (c) HashiCorp, Inc.
+
 package envoyer_client
 
 import (
