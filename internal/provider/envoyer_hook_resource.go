@@ -122,8 +122,8 @@ func (r *EnvoyerHookResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	plan.ID = types.Int64Value(int64(hook.ID))
-	plan.Sequence = types.Int64Value(int64(hook.Sequence))
+	plan.ID = types.Int64Value(hook.ID)
+	plan.Sequence = types.Int64Value(hook.Sequence)
 	plan.CreatedAt = types.StringValue(hook.CreatedAt)
 	plan.UpdatedAt = types.StringValue(hook.UpdatedAt)
 
@@ -145,12 +145,12 @@ func (r *EnvoyerHookResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	state.ActionID = types.Int64Value(int64(hook.ActionID))
+	state.ActionID = types.Int64Value(hook.ActionID)
 	state.Timing = types.StringValue(hook.Timing)
 	state.Name = types.StringValue(hook.Name)
 	state.RunAs = types.StringValue(hook.RunAs)
 	state.Script = types.StringValue(hook.Script)
-	state.Sequence = types.Int64Value(int64(hook.Sequence))
+	state.Sequence = types.Int64Value(hook.Sequence)
 	state.CreatedAt = types.StringValue(hook.CreatedAt)
 	state.UpdatedAt = types.StringValue(hook.UpdatedAt)
 	state.Servers = convertIntSliceToList(hook.Servers)
@@ -236,7 +236,7 @@ func extractIntSliceFromList(list types.List) []int64 {
 func convertIntSliceToList(ints []int64) types.List {
 	var values []int64
 	for _, i := range ints {
-		values = append(values, int64(i))
+		values = append(values, i)
 	}
 	list, _ := types.ListValueFrom(context.Background(), types.Int64Type, values)
 	return list

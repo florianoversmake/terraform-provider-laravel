@@ -420,7 +420,7 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	plan.ID = types.Int64Value(int64(response.Server.ID))
+	plan.ID = types.Int64Value(response.Server.ID)
 	plan.IpAddress = types.StringPointerValue(response.Server.IPAddress)
 	plan.PrivateIpAddress = types.StringPointerValue(response.Server.PrivateIPAddress)
 	plan.SshPort = types.Int32Value(int32(response.Server.SSHPort))
@@ -478,7 +478,7 @@ func (r *ForgeServerResource) Read(ctx context.Context, req resource.ReadRequest
 	state.ServerProvider = types.StringValue(server.Provider)
 	state.UbuntuVersion = types.StringValue(server.UbuntuVersion)
 	state.Name = types.StringValue(server.Name)
-	state.CredentialID = types.Int64Value(int64(server.CredentialID))
+	state.CredentialID = types.Int64Value(server.CredentialID)
 	state.Type = types.StringValue(server.Type)
 	state.PhpVersion = types.StringValue(server.PHPVersion)
 	state.DatabaseType = types.StringValue(server.DatabaseType)
@@ -582,11 +582,11 @@ func (r *ForgeServerResource) ImportState(ctx context.Context, req resource.Impo
 	}
 
 	state := ForgeServerResourceModel{
-		ID:                  types.Int64Value(int64(server.ID)),
+		ID:                  types.Int64Value(server.ID),
 		ServerProvider:      types.StringValue(server.Provider),
 		UbuntuVersion:       types.StringValue(server.UbuntuVersion),
 		Name:                types.StringValue(server.Name),
-		CredentialID:        types.Int64Value(int64(server.CredentialID)),
+		CredentialID:        types.Int64Value(server.CredentialID),
 		Type:                types.StringValue(server.Type),
 		Circle:              types.Int64Value(0),
 		PhpVersion:          types.StringValue(server.PHPVersion),
