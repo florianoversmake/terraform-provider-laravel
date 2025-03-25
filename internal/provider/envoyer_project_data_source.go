@@ -35,7 +35,7 @@ type EnvoyerProjectDataSourceModel struct {
 	Type                 types.String `tfsdk:"type"`
 	Branch               types.String `tfsdk:"branch"`
 	PushToDeploy         types.Bool   `tfsdk:"push_to_deploy"`
-	WebhookID            types.Int64  `tfsdk:"webhook_id"`
+	WebhookID            types.String `tfsdk:"webhook_id"`
 	Status               types.String `tfsdk:"status"`
 	ShouldDeployAgain    types.Int64  `tfsdk:"should_deploy_again"`
 	DeploymentStartedAt  types.String `tfsdk:"deployment_started_at"`
@@ -121,7 +121,7 @@ func (d *EnvoyerProjectDataSource) Schema(ctx context.Context, req datasource.Sc
 				MarkdownDescription: "Push to deploy.",
 				Computed:            true,
 			},
-			"webhook_id": schema.Int64Attribute{
+			"webhook_id": schema.StringAttribute{
 				MarkdownDescription: "Webhook ID.",
 				Computed:            true,
 			},
@@ -243,6 +243,11 @@ func (d *EnvoyerProjectDataSource) Schema(ctx context.Context, req datasource.Sc
 
 // Configure obtains the *http.Client from the provider.
 func (d *EnvoyerProjectDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
 	providerConfig, ok := req.ProviderData.(*providerConfig)
 	if !ok {
 		resp.Diagnostics.AddError(
@@ -291,7 +296,7 @@ func (d *EnvoyerProjectDataSource) Read(ctx context.Context, req datasource.Read
 	data.Type = types.StringValue(project.Type)
 	data.Branch = types.StringValue(project.Branch)
 	data.PushToDeploy = types.BoolValue(project.PushToDeploy)
-	data.WebhookID = types.Int64PointerValue(project.WebhookID)
+	data.WebhookID = types.StringPointerValue(project.WebhookID)
 	data.Status = types.StringPointerValue(project.Status)
 	data.ShouldDeployAgain = types.Int64Value(project.ShouldDeployAgain)
 	if project.DeploymentStartedAt != nil {

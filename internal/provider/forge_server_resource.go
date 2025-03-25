@@ -315,6 +315,11 @@ func (r *ForgeServerResource) Schema(ctx context.Context, req resource.SchemaReq
 }
 
 func (r *ForgeServerResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
 	providerConfig, ok := req.ProviderData.(*providerConfig)
 	if !ok {
 		resp.Diagnostics.AddError(

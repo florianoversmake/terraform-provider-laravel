@@ -131,6 +131,11 @@ func (r *EnvoyerProjectResource) Schema(ctx context.Context, req resource.Schema
 
 // Configure is called when the resource is instantiated. We get the provider data (the Envoyer client).
 func (r *EnvoyerProjectResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
 	providerConfig, ok := req.ProviderData.(*providerConfig)
 	if !ok {
 		resp.Diagnostics.AddError(

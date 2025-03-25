@@ -15,8 +15,10 @@ description: |-
 ```terraform
 # Copyright (c) HashiCorp, Inc.
 
-provider "laravel-envoyer" {
-  api_token = "your-api-token"
+provider "laravel" {
+  envoyer_api_token = ""
+  envoyer_env_key   = ""
+  forge_api_token   = ""
 }
 ```
 

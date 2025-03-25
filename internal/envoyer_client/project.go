@@ -25,7 +25,7 @@ type Project struct {
 	Type                    string         `json:"type"`
 	Branch                  string         `json:"branch"`
 	PushToDeploy            bool           `json:"push_to_deploy"`
-	WebhookID               *int64         `json:"webhook_id"`
+	WebhookID               *string        `json:"webhook_id"`
 	Status                  *string        `json:"status"`
 	ShouldDeployAgain       int64          `json:"should_deploy_again"`
 	DeploymentStartedAt     *time.Time     `json:"deployment_started_at"`
