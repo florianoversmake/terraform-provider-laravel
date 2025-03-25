@@ -57,5 +57,5 @@ Data source for retrieving an existing Envoyer project by ID.
 - `updated_at` (String) Updated at.
 - `user_id` (Number) User ID.
 - `version` (Number) Version.
-- `webhook_id` (Number) Webhook ID.
+- `webhook_id` (String) Webhook ID.
 - `weekly_deploys` (Number) Weekly deploys.
