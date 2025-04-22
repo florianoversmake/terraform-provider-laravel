@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package forge_client
 
 import (
@@ -12,7 +10,7 @@ type SSLCertificate struct {
 	ID            int64  `json:"id"`
 	Domain        string `json:"domain"`
 	RequestStatus string `json:"request_status"`
-	CreatedAt     string `json:"created_at"`
+	CreatedAt     int64  `json:"created_at"`
 	Existing      bool   `json:"existing"`
 	Active        bool   `json:"active"`
 	Type          string `json:"type,omitempty"`
@@ -66,13 +64,12 @@ func (c *Client) GetCertificate(ctx context.Context, serverID, siteID, certID in
 
 func (c *Client) GetCertificateCSR(ctx context.Context, serverID, siteID, certID int) (string, error) {
 	path := fmt.Sprintf("/servers/%d/sites/%d/certificates/%d/csr", serverID, siteID, certID)
-	var res struct {
-		Output string `json:"output"`
-	}
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+
+	csr, err := c.GetText(ctx, path)
+	if err != nil {
 		return "", err
 	}
-	return res.Output, nil
+	return csr, nil
 }
 
 type InstallCertificateRequest struct {
@@ -93,4 +90,48 @@ func (c *Client) ActivateCertificate(ctx context.Context, serverID, siteID, cert
 func (c *Client) DeleteCertificate(ctx context.Context, serverID, siteID, certID int) error {
 	path := fmt.Sprintf("/servers/%d/sites/%d/certificates/%d", serverID, siteID, certID)
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
+}
+
+type ObtainLetsencryptCertificateDNSProvider struct {
+	Type                  string `json:"type"`
+	CloudflareAPIToken    string `json:"cloudflare_api_token,omitempty"`
+	Route53Key            string `json:"route53_key,omitempty"`
+	Route53Secret         string `json:"route53_secret,omitempty"`
+	DigitalOceanToken     string `json:"digitalocean_token,omitempty"`
+	DNSSimpleToken        string `json:"dnssimple_token,omitempty"`
+	LinodeToken           string `json:"linode_token,omitempty"`
+	OVHEndpoint           string `json:"ovh_endpoint,omitempty"`
+	OVHAppKey             string `json:"ovh_app_key,omitempty"`
+	OVHAppSecret          string `json:"ovh_app_secret,omitempty"`
+	OVHConsumerKey        string `json:"ovh_consumer_key,omitempty"`
+	GoogleCredentialsFile string `json:"google_credentials_file,omitempty"`
+}
+
+type ObtainLetsencryptCertificateRequest struct {
+	Domains     []string                                `json:"domains"`
+	DNSProvider ObtainLetsencryptCertificateDNSProvider `json:"dns_provider"`
+}
+
+type ObtainLetsencryptCertificate struct {
+	Domain        string `json:"domain"`
+	Type          string `json:"type"`
+	RequestStatus string `json:"request_status"`
+	Status        string `json:"status"`
+	CreatedAt     string `json:"created_at"`
+	Id            int64  `json:"id"`
+	Existing      bool   `json:"existing"`
+	Active        bool   `json:"active"`
+}
+
+type ObtainLetsencryptCertificateResponse struct {
+	Certificate ObtainLetsencryptCertificate `json:"certificate"`
+}
+
+func (c *Client) ObtainLetsencryptCertificate(ctx context.Context, serverID, siteID int, req ObtainLetsencryptCertificateRequest) (*ObtainLetsencryptCertificate, error) {
+	path := fmt.Sprintf("/servers/%d/sites/%d/letsencrypt", serverID, siteID)
+	var res ObtainLetsencryptCertificateResponse
+	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
+		return nil, err
+	}
+	return &res.Certificate, nil
 }

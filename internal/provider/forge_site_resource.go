@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -49,7 +47,6 @@ type ForgeSiteResourceModel struct {
 	WebDirectory  types.String `tfsdk:"web_directory"`
 }
 
-// NewForgeSiteResource is a helper function to instantiate the resource.
 func NewForgeSiteResource() resource.Resource {
 	return &ForgeSiteResource{}
 }
@@ -60,41 +57,48 @@ func (r *ForgeSiteResource) Metadata(ctx context.Context, req resource.MetadataR
 
 func (r *ForgeSiteResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "Forge site resource. This resource allows you to manage sites in Forge.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Computed: true,
-				// Use state for unknown IDs.
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
 			"server_id": schema.Int64Attribute{
-				Required: true,
+				Required:            true,
+				MarkdownDescription: "The ID of the server the site is on.",
 			},
 			"domain": schema.StringAttribute{
-				Required: true,
+				Required:            true,
+				MarkdownDescription: "The domain name for the site.",
 			},
 			"project_type": schema.StringAttribute{
-				Required: true,
+				Required:            true,
+				MarkdownDescription: "The type of project (e.g., 'php', 'html').",
 			},
 			"aliases": schema.ListAttribute{
-				ElementType: types.StringType,
-				Optional:    true,
-				Computed:    true,
-				Default:     listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				ElementType:         types.StringType,
+				Optional:            true,
+				Computed:            true,
+				Default:             listdefault.StaticValue(types.ListValueMust(types.StringType, []attr.Value{})),
+				MarkdownDescription: "List of additional domain names (aliases) for the site.",
 			},
 			"directory": schema.StringAttribute{
-				Required: true,
+				Required:            true,
+				MarkdownDescription: "The directory where the site files are located.",
 			},
 			"isolated": schema.BoolAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  booldefault.StaticBool(false),
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+				MarkdownDescription: "Whether the site is isolated. If true, a username must be provided.",
 			},
 			"username": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString("forge"),
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString("forge"),
+				MarkdownDescription: "The username for the isolated site. Required if `isolated` is true. Default is 'forge'.",
 			},
 			"database": schema.StringAttribute{
 				Optional: true,
@@ -102,7 +106,7 @@ func (r *ForgeSiteResource) Schema(ctx context.Context, req resource.SchemaReque
 			"php_version": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
-				Default:  stringdefault.StaticString("php82"),
+				Default:  stringdefault.StaticString("php82"), // Todo: Make this dynamic, or check if 'php' defaults to the system version.
 			},
 			"nginx_template": schema.StringAttribute{
 				Optional: true,
@@ -135,6 +139,15 @@ func (r *ForgeSiteResource) Configure(ctx context.Context, req resource.Configur
 		resp.Diagnostics.AddError(
 			"Unexpected Provider Configure Type",
 			fmt.Sprintf("Expected *providerConfig, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+		return
+	}
+
+	if providerConfig.Forge == nil {
+		resp.Diagnostics.AddError(
+			"Forge Client Not Configured",
+			"This resource requires the Forge API token to be configured in the provider. "+
+				"Please set the 'forge_api_token' attribute in the provider configuration.",
 		)
 		return
 	}

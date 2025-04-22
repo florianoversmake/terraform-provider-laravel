@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -23,6 +21,7 @@ type EnvoyerActionsDataSource struct {
 }
 
 type EnvoyerActionsDataSourceModel struct {
+	Filters []Filter             `tfsdk:"filter"`
 	Actions []EnvoyerActionModel `tfsdk:"actions"`
 }
 
@@ -42,6 +41,25 @@ func (d *EnvoyerActionsDataSource) Metadata(ctx context.Context, req datasource.
 
 func (d *EnvoyerActionsDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "Data source for listing Envoyer actions. Use the `filter` block to filter the actions by specific fields.",
+		Blocks: map[string]schema.Block{
+			"filter": schema.ListNestedBlock{
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Required:    true,
+							Description: "The field name to filter by (e.g., 'name' or 'type')",
+						},
+						"values": schema.ListAttribute{
+							ElementType: types.StringType,
+							Required:    true,
+							Description: "The list of values to match for the specified field",
+						},
+					},
+				},
+				Description: "Filter block for selecting specific credentials.",
+			},
+		},
 		Attributes: map[string]schema.Attribute{
 			"actions": schema.ListNestedAttribute{
 				Computed:    true,
@@ -63,11 +81,25 @@ func (d *EnvoyerActionsDataSource) Schema(ctx context.Context, req datasource.Sc
 }
 
 func (d *EnvoyerActionsDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
 	providerConfig, ok := req.ProviderData.(*providerConfig)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Provider Configure Type",
 			fmt.Sprintf("Expected *providerConfig, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+		return
+	}
+
+	if providerConfig.Envoyer == nil {
+		resp.Diagnostics.AddError(
+			"Envoyer Client Not Configured",
+			"This resource requires the Envoyer API token to be configured in the provider. "+
+				"Please set the 'envoyer_api_token' attribute in the provider configuration.",
 		)
 		return
 	}
@@ -83,15 +115,16 @@ func (d *EnvoyerActionsDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	// Assume a client.ListActions method is implemented.
 	actions, err := d.client.ListActions(ctx)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading actions", err.Error())
 		return
 	}
 
+	filteredActions := filterEnvoyerActions(actions, state.Filters)
+
 	var actionModels []EnvoyerActionModel
-	for _, a := range actions {
+	for _, a := range filteredActions {
 		actionModels = append(actionModels, EnvoyerActionModel{
 			ID:        types.Int64Value(a.ID),
 			Version:   types.Int64Value(a.Version),
@@ -106,4 +139,45 @@ func (d *EnvoyerActionsDataSource) Read(ctx context.Context, req datasource.Read
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
+}
+
+func filterEnvoyerActions(actions []envoyer_client.Action, filters []Filter) []envoyer_client.Action {
+	if len(filters) == 0 {
+		return actions
+	}
+
+	var filtered []envoyer_client.Action
+
+	for _, c := range actions {
+		match := true
+		for _, f := range filters {
+			switch f.Name.ValueString() {
+			case "name":
+				if !matchesFilter(c.Name, f.Values) {
+					match = false
+				}
+			case "view":
+				if !matchesFilter(c.View, f.Values) {
+					match = false
+				}
+			case "sequence":
+				if !matchesFilter(fmt.Sprintf("%d", c.Sequence), f.Values) {
+					match = false
+				}
+			case "version":
+				if !matchesFilter(fmt.Sprintf("%d", c.Version), f.Values) {
+					match = false
+				}
+			default:
+				// Ignore unknown filters
+				match = false
+			}
+		}
+
+		if match {
+			filtered = append(filtered, c)
+		}
+	}
+
+	return filtered
 }

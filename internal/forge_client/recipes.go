@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package forge_client
 
 import (
@@ -72,8 +70,8 @@ func (c *Client) DeleteRecipe(ctx context.Context, recipeID int) error {
 }
 
 type RunRecipeRequest struct {
-	Servers []int `json:"servers"`
-	Notify  bool  `json:"notify"`
+	Servers []int64 `json:"servers"`
+	Notify  bool    `json:"notify"`
 }
 
 func (c *Client) RunRecipe(ctx context.Context, recipeID int, req RunRecipeRequest) error {

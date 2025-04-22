@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package forge_client
 
 import (
@@ -17,6 +15,18 @@ import (
 )
 
 const DefaultBaseURL = "https://forge.laravel.com/api/v1"
+
+// ResponseFormat represents the expected format of an API response.
+type ResponseFormat string
+
+const (
+	// ResponseFormatJSON indicates the response should be treated as JSON (default).
+	ResponseFormatJSON ResponseFormat = "json"
+	// ResponseFormatText indicates the response should be treated as plain text.
+	ResponseFormatText ResponseFormat = "text"
+	// ResponseFormatRaw indicates the response should be returned as raw bytes.
+	ResponseFormatRaw ResponseFormat = "raw"
+)
 
 // CacheItem represents a cached HTTP response with metadata.
 type CacheItem struct {
@@ -127,10 +137,19 @@ type RequestOption func(*requestOptions)
 
 // requestOptions holds configuration for a single request.
 type requestOptions struct {
-	cacheEnabled        *bool          // Whether caching is enabled for this request
-	cacheTTL            *time.Duration // TTL for this specific request
-	cacheErrorResponses *bool          // Whether to cache error responses for this request
-	forceRefresh        bool           // Force a refresh (bypass cache)
+	cacheEnabled        *bool             // Whether caching is enabled for this request
+	cacheTTL            *time.Duration    // TTL for this specific request
+	cacheErrorResponses *bool             // Whether to cache error responses for this request
+	forceRefresh        bool              // Force a refresh (bypass cache)
+	responseFormat      ResponseFormat    // Format of the expected response
+	headers             map[string]string // Additional headers for the request
+	retry               *retryOptions     // Custom retry options for this request
+}
+
+// retryOptions holds retry configuration for a request
+type retryOptions struct {
+	maxRetries int
+	retryDelay time.Duration
 }
 
 // WithRequestCache enables or disables caching for a specific request.
@@ -159,6 +178,66 @@ func WithForceRefresh() RequestOption {
 	return func(opts *requestOptions) {
 		opts.forceRefresh = true
 	}
+}
+
+// WithResponseFormat sets the expected response format for a request.
+func WithResponseFormat(format ResponseFormat) RequestOption {
+	return func(opts *requestOptions) {
+		opts.responseFormat = format
+	}
+}
+
+// WithHeader adds a custom header to the request.
+func WithHeader(key, value string) RequestOption {
+	return func(opts *requestOptions) {
+		if opts.headers == nil {
+			opts.headers = make(map[string]string)
+		}
+		opts.headers[key] = value
+	}
+}
+
+// WithRetry sets custom retry options for a specific request.
+func WithRetry(maxRetries int, retryDelay time.Duration) RequestOption {
+	return func(opts *requestOptions) {
+		opts.retry = &retryOptions{
+			maxRetries: maxRetries,
+			retryDelay: retryDelay,
+		}
+	}
+}
+
+// Response represents an API response with various formats supported.
+type Response struct {
+	StatusCode int         // HTTP status code
+	Headers    http.Header // Response headers
+	Body       []byte      // Raw response body
+}
+
+// JSON unmarshals the response body as JSON into the provided value.
+func (r *Response) JSON(v interface{}) error {
+	if r.Body == nil || len(r.Body) == 0 {
+		return fmt.Errorf("empty response body")
+	}
+	return json.Unmarshal(r.Body, v)
+}
+
+// Text returns the response body as a string.
+func (r *Response) Text() string {
+	if r.Body == nil {
+		return ""
+	}
+	return string(r.Body)
+}
+
+// Raw returns the raw response body.
+func (r *Response) Raw() []byte {
+	return r.Body
+}
+
+// IsSuccess returns true if the response status code is in the 2xx range.
+func (r *Response) IsSuccess() bool {
+	return r.StatusCode >= 200 && r.StatusCode < 300
 }
 
 // Client is the Forge API client.
@@ -343,6 +422,7 @@ type ErrorResponse struct {
 type ClientError struct {
 	StatusCode int
 	Body       string
+	Headers    http.Header
 }
 
 func (e *ClientError) Error() string {
@@ -353,24 +433,27 @@ func (e *ClientError) Error() string {
 type ClientErrorResourceNotFound struct {
 	StatusCode int
 	Body       string
+	Headers    http.Header
 }
 
 func (e *ClientErrorResourceNotFound) Error() string {
-	return fmt.Sprintf("forge: status=%d, body=%s", e.StatusCode, e.Body)
+	return fmt.Sprintf("forge: resource not found (status=%d), body=%s", e.StatusCode, e.Body)
 }
 
 // generateCacheKey creates a unique key for caching based on the request details.
-func (c *Client) generateCacheKey(method, path string, reqBody []byte) string {
+func (c *Client) generateCacheKey(method, path string, reqBody []byte, format ResponseFormat) string {
 	if reqBody != nil {
-		return fmt.Sprintf("%s:%s:%x", method, path, reqBody)
+		return fmt.Sprintf("%s:%s:%s:%x", method, path, format, reqBody)
 	}
-	return fmt.Sprintf("%s:%s", method, path)
+	return fmt.Sprintf("%s:%s:%s", method, path, format)
 }
 
 // getEffectiveRequestOptions merges default options with per-request options.
 func (c *Client) getEffectiveRequestOptions(opts ...RequestOption) requestOptions {
 	// Start with default options
-	effective := requestOptions{}
+	effective := requestOptions{
+		responseFormat: ResponseFormatJSON, // Default to JSON
+	}
 
 	// Apply all request-specific options
 	for _, opt := range opts {
@@ -380,8 +463,9 @@ func (c *Client) getEffectiveRequestOptions(opts ...RequestOption) requestOption
 	return effective
 }
 
-// doRequestWithOptions performs an HTTP request with caching if enabled and respecting per-request options.
-func (c *Client) doRequestWithOptions(ctx context.Context, method, path string, in, out any, opts ...RequestOption) error {
+// doRequestInternal performs an HTTP request with the given options and returns a Response object.
+// This is the internal implementation used by all request methods.
+func (c *Client) doRequestInternal(ctx context.Context, method, path string, in any, opts ...RequestOption) (*Response, error) {
 	// Process request-specific options
 	reqOpts := c.getEffectiveRequestOptions(opts...)
 
@@ -409,31 +493,38 @@ func (c *Client) doRequestWithOptions(ctx context.Context, method, path string, 
 		var err error
 		reqBodyBytes, err = json.Marshal(in)
 		if err != nil {
-			return fmt.Errorf("failed to marshal request body: %w", err)
+			return nil, fmt.Errorf("failed to marshal request body: %w", err)
 		}
 	}
 
-	// Generate cache key for this request
-	cacheKey := c.generateCacheKey(method, path, reqBodyBytes)
+	// Generate cache key for this request (include response format)
+	cacheKey := c.generateCacheKey(method, path, reqBodyBytes, reqOpts.responseFormat)
 
 	// Try to get the response from cache first (unless force refresh is requested)
 	if isCacheable && !reqOpts.forceRefresh {
 		if cachedItem, found := c.cache.Get(cacheKey); found {
 			// We have a valid cached response
-			if out != nil {
-				if err := json.Unmarshal(cachedItem.Value, out); err != nil {
-					return fmt.Errorf("failed to unmarshal cached response: %w", err)
-				}
-			}
-			return nil
+			return &Response{
+				StatusCode: cachedItem.StatusCode,
+				Headers:    cachedItem.Headers,
+				Body:       cachedItem.Value,
+			}, nil
 		}
+	}
+
+	// Get retry configuration for this request
+	maxRetries := c.MaxRetries
+	retryDelay := c.RetryDelay
+	if reqOpts.retry != nil {
+		maxRetries = reqOpts.retry.maxRetries
+		retryDelay = reqOpts.retry.retryDelay
 	}
 
 	var attempt int
 	for {
 		reqURL, err := url.Parse(c.baseURL + path)
 		if err != nil {
-			return fmt.Errorf("invalid URL '%s': %w", path, err)
+			return nil, fmt.Errorf("invalid URL '%s': %w", path, err)
 		}
 
 		// Use a fresh reader for each attempt
@@ -444,31 +535,58 @@ func (c *Client) doRequestWithOptions(ctx context.Context, method, path string, 
 
 		req, err := http.NewRequestWithContext(ctx, method, reqURL.String(), reqBody)
 		if err != nil {
-			return fmt.Errorf("failed to create request: %w", err)
+			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
 
 		// Set required headers
 		req.Header.Set("Authorization", "Bearer "+c.ForgeAPIToken)
-		req.Header.Set("Accept", "application/json")
+
+		// Set appropriate content type and accept headers based on response format
 		req.Header.Set("Content-Type", "application/json")
+
+		switch reqOpts.responseFormat {
+		case ResponseFormatJSON:
+			req.Header.Set("Accept", "application/json")
+		case ResponseFormatText:
+			req.Header.Set("Accept", "text/plain")
+		case ResponseFormatRaw:
+			req.Header.Set("Accept", "*/*")
+		}
+
+		// Add any custom headers
+		for k, v := range reqOpts.headers {
+			req.Header.Set(k, v)
+		}
 
 		// Execute the request
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
-			return fmt.Errorf("request error: %w", err)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+				return nil, fmt.Errorf("request error: %w", err)
+			}
 		}
 
 		bodyBytes, err := io.ReadAll(resp.Body)
 		resp.Body.Close() // Close immediately to avoid resource leak
 		if err != nil {
-			return fmt.Errorf("failed to read response body: %w", err)
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+
+		// Create response object
+		response := &Response{
+			StatusCode: resp.StatusCode,
+			Headers:    resp.Header,
+			Body:       bodyBytes,
 		}
 
 		// Handle 429 (Too Many Requests) with automatic throttling
 		if resp.StatusCode == http.StatusTooManyRequests {
-			if attempt < c.MaxRetries {
+			if attempt < maxRetries {
 				// Check for a Retry-After header value
-				delay := c.RetryDelay
+				delay := retryDelay
 				if ra := resp.Header.Get("Retry-After"); ra != "" {
 					if seconds, err := strconv.Atoi(ra); err == nil {
 						delay = time.Duration(seconds) * time.Second
@@ -481,27 +599,13 @@ func (c *Client) doRequestWithOptions(ctx context.Context, method, path string, 
 					attempt++
 					continue
 				case <-ctx.Done():
-					return ctx.Err()
+					return nil, ctx.Err()
 				}
 			} else {
-				return &ClientError{
+				clientErr := &ClientError{
 					StatusCode: resp.StatusCode,
 					Body:       string(bodyBytes),
-				}
-			}
-		}
-
-		// Handle other non-success status codes
-		if resp.StatusCode < 200 || resp.StatusCode > 299 {
-			clientErr := &ClientError{
-				StatusCode: resp.StatusCode,
-				Body:       string(bodyBytes),
-			}
-
-			if resp.StatusCode == http.StatusNotFound {
-				clientErr := &ClientErrorResourceNotFound{
-					StatusCode: resp.StatusCode,
-					Body:       string(bodyBytes),
+					Headers:    resp.Header,
 				}
 
 				// Cache error responses if configured to do so
@@ -514,7 +618,26 @@ func (c *Client) doRequestWithOptions(ctx context.Context, method, path string, 
 					})
 				}
 
-				return clientErr
+				return nil, clientErr
+			}
+		}
+
+		// Handle other non-success status codes
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
+			var clientErr error
+
+			if resp.StatusCode == http.StatusNotFound {
+				clientErr = &ClientErrorResourceNotFound{
+					StatusCode: resp.StatusCode,
+					Body:       string(bodyBytes),
+					Headers:    resp.Header,
+				}
+			} else {
+				clientErr = &ClientError{
+					StatusCode: resp.StatusCode,
+					Body:       string(bodyBytes),
+					Headers:    resp.Header,
+				}
 			}
 
 			// Cache error responses if configured to do so
@@ -527,7 +650,7 @@ func (c *Client) doRequestWithOptions(ctx context.Context, method, path string, 
 				})
 			}
 
-			return clientErr
+			return response, clientErr
 		}
 
 		// On success, store in cache if applicable
@@ -540,20 +663,60 @@ func (c *Client) doRequestWithOptions(ctx context.Context, method, path string, 
 			})
 		}
 
-		// Decode the response into out (if provided)
-		if out != nil {
-			if err := json.Unmarshal(bodyBytes, out); err != nil {
-				return fmt.Errorf("failed to unmarshal response body: %w", err)
-			}
-		}
-
-		return nil
+		return response, nil
 	}
 }
 
-// doRequest is the legacy method for backward compatibility.
+// doRequest is the original method for backward compatibility.
+// This maintains the exact same signature as the original client.
 func (c *Client) doRequest(ctx context.Context, method, path string, in, out any) error {
-	return c.doRequestWithOptions(ctx, method, path, in, out)
+	// Always use JSON format for backward compatibility
+	resp, err := c.doRequestInternal(ctx, method, path, in, WithResponseFormat(ResponseFormatJSON))
+	if err != nil {
+		return err
+	}
+
+	// If out is provided, unmarshal the response
+	if out != nil {
+		if err := resp.JSON(out); err != nil {
+			return fmt.Errorf("failed to unmarshal response: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// doRequestWithOptions is a wrapper around doRequestInternal that handles JSON unmarshaling
+// for the new API methods
+func (c *Client) doRequestWithOptions(ctx context.Context, method, path string, in, out any, opts ...RequestOption) error {
+	// Add JSON response format option if not specified
+	hasResponseFormat := false
+	for _, opt := range opts {
+		tempOpts := requestOptions{}
+		opt(&tempOpts)
+		if tempOpts.responseFormat != "" {
+			hasResponseFormat = true
+			break
+		}
+	}
+
+	if !hasResponseFormat {
+		opts = append(opts, WithResponseFormat(ResponseFormatJSON))
+	}
+
+	resp, err := c.doRequestInternal(ctx, method, path, in, opts...)
+	if err != nil {
+		return err
+	}
+
+	// If out is provided, unmarshal the response
+	if out != nil {
+		if err := resp.JSON(out); err != nil {
+			return fmt.Errorf("failed to unmarshal response: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // InvalidateCache removes all entries from the cache that match a given prefix.
@@ -573,24 +736,99 @@ func (c *Client) InvalidateByPrefix(prefix string) int {
 	return count
 }
 
-// Get performs a GET request with caching.
-func (c *Client) Get(ctx context.Context, path string, out any, opts ...RequestOption) error {
-	return c.doRequestWithOptions(ctx, http.MethodGet, path, nil, out, opts...)
+// Get performs a GET request with backward compatibility for the original API.
+func (c *Client) Get(ctx context.Context, path string, out any) error {
+	return c.doRequest(ctx, http.MethodGet, path, nil, out)
 }
 
-// Post performs a POST request.
-func (c *Client) Post(ctx context.Context, path string, in, out any, opts ...RequestOption) error {
-	return c.doRequestWithOptions(ctx, http.MethodPost, path, in, out, opts...)
+// GetWithResponse is the new enhanced version that returns a Response object.
+func (c *Client) GetWithResponse(ctx context.Context, path string, opts ...RequestOption) (*Response, error) {
+	return c.doRequestInternal(ctx, http.MethodGet, path, nil, opts...)
 }
 
-// Put performs a PUT request.
-func (c *Client) Put(ctx context.Context, path string, in, out any, opts ...RequestOption) error {
-	return c.doRequestWithOptions(ctx, http.MethodPut, path, in, out, opts...)
+// GetText performs a GET request and returns the response as plain text.
+func (c *Client) GetText(ctx context.Context, path string, opts ...RequestOption) (string, error) {
+	opts = append(opts, WithResponseFormat(ResponseFormatText))
+	resp, err := c.doRequestInternal(ctx, http.MethodGet, path, nil, opts...)
+	if err != nil {
+		return "", err
+	}
+	return resp.Text(), nil
 }
 
-// Delete performs a DELETE request.
-func (c *Client) Delete(ctx context.Context, path string, out any, opts ...RequestOption) error {
-	return c.doRequestWithOptions(ctx, http.MethodDelete, path, nil, out, opts...)
+// GetRaw performs a GET request and returns the raw response bytes.
+func (c *Client) GetRaw(ctx context.Context, path string, opts ...RequestOption) ([]byte, error) {
+	opts = append(opts, WithResponseFormat(ResponseFormatRaw))
+	resp, err := c.doRequestInternal(ctx, http.MethodGet, path, nil, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Raw(), nil
+}
+
+// GetWithoutCache is a legacy method for backward compatibility.
+func (c *Client) GetWithoutCache(ctx context.Context, path string, out any) error {
+	return c.doRequestWithOptions(ctx, http.MethodGet, path, nil, out, WithRequestCache(false))
+}
+
+// Post performs a POST request with backward compatibility for the original API.
+func (c *Client) Post(ctx context.Context, path string, in, out any) error {
+	return c.doRequest(ctx, http.MethodPost, path, in, out)
+}
+
+// PostWithResponse is the new enhanced version that returns a Response object.
+func (c *Client) PostWithResponse(ctx context.Context, path string, in any, opts ...RequestOption) (*Response, error) {
+	return c.doRequestInternal(ctx, http.MethodPost, path, in, opts...)
+}
+
+// PostText performs a POST request and returns the response as plain text.
+func (c *Client) PostText(ctx context.Context, path string, in any, opts ...RequestOption) (string, error) {
+	opts = append(opts, WithResponseFormat(ResponseFormatText))
+	resp, err := c.doRequestInternal(ctx, http.MethodPost, path, in, opts...)
+	if err != nil {
+		return "", err
+	}
+	return resp.Text(), nil
+}
+
+// Put performs a PUT request with backward compatibility for the original API.
+func (c *Client) Put(ctx context.Context, path string, in, out any) error {
+	return c.doRequest(ctx, http.MethodPut, path, in, out)
+}
+
+// PutWithResponse is the new enhanced version that returns a Response object.
+func (c *Client) PutWithResponse(ctx context.Context, path string, in any, opts ...RequestOption) (*Response, error) {
+	return c.doRequestInternal(ctx, http.MethodPut, path, in, opts...)
+}
+
+// PutText performs a PUT request and returns the response as plain text.
+func (c *Client) PutText(ctx context.Context, path string, in any, opts ...RequestOption) (string, error) {
+	opts = append(opts, WithResponseFormat(ResponseFormatText))
+	resp, err := c.doRequestInternal(ctx, http.MethodPut, path, in, opts...)
+	if err != nil {
+		return "", err
+	}
+	return resp.Text(), nil
+}
+
+// Delete performs a DELETE request with backward compatibility for the original API.
+func (c *Client) Delete(ctx context.Context, path string, out any) error {
+	return c.doRequest(ctx, http.MethodDelete, path, nil, out)
+}
+
+// DeleteWithResponse is the new enhanced version that returns a Response object.
+func (c *Client) DeleteWithResponse(ctx context.Context, path string, opts ...RequestOption) (*Response, error) {
+	return c.doRequestInternal(ctx, http.MethodDelete, path, nil, opts...)
+}
+
+// DeleteText performs a DELETE request and returns the response as plain text.
+func (c *Client) DeleteText(ctx context.Context, path string, opts ...RequestOption) (string, error) {
+	opts = append(opts, WithResponseFormat(ResponseFormatText))
+	resp, err := c.doRequestInternal(ctx, http.MethodDelete, path, nil, opts...)
+	if err != nil {
+		return "", err
+	}
+	return resp.Text(), nil
 }
 
 // WithHTTPClient sets a custom HTTP client.
@@ -606,6 +844,27 @@ func (c *Client) WithRetryConfig(maxRetries int, retryDelay time.Duration) *Clie
 	return c
 }
 
+// HTTPClient returns the underlying HTTP client.
 func (c *Client) HTTPClient() *http.Client {
 	return c.httpClient
+}
+
+// GetJSON performs a GET request and unmarshals the JSON response (new method).
+func (c *Client) GetJSON(ctx context.Context, path string, out any, opts ...RequestOption) error {
+	return c.doRequestWithOptions(ctx, http.MethodGet, path, nil, out, opts...)
+}
+
+// PostJSON performs a POST request and unmarshals the JSON response (new method).
+func (c *Client) PostJSON(ctx context.Context, path string, in, out any, opts ...RequestOption) error {
+	return c.doRequestWithOptions(ctx, http.MethodPost, path, in, out, opts...)
+}
+
+// PutJSON performs a PUT request and unmarshals the JSON response (new method).
+func (c *Client) PutJSON(ctx context.Context, path string, in, out any, opts ...RequestOption) error {
+	return c.doRequestWithOptions(ctx, http.MethodPut, path, in, out, opts...)
+}
+
+// DeleteJSON performs a DELETE request and unmarshals the JSON response (new method).
+func (c *Client) DeleteJSON(ctx context.Context, path string, out any, opts ...RequestOption) error {
+	return c.doRequestWithOptions(ctx, http.MethodDelete, path, nil, out, opts...)
 }

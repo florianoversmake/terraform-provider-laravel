@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -253,6 +251,15 @@ func (d *EnvoyerProjectDataSource) Configure(ctx context.Context, req datasource
 		resp.Diagnostics.AddError(
 			"Unexpected Provider Configure Type",
 			fmt.Sprintf("Expected *providerConfig, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+		return
+	}
+
+	if providerConfig.Envoyer == nil {
+		resp.Diagnostics.AddError(
+			"Envoyer Client Not Configured",
+			"This resource requires the Envoyer API token to be configured in the provider. "+
+				"Please set the 'envoyer_api_token' attribute in the provider configuration.",
 		)
 		return
 	}

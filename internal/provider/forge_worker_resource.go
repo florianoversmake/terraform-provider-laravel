@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -22,11 +20,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// Ensure ForgeWorkerResource satisfies required interfaces.
 var _ resource.Resource = &ForgeWorkerResource{}
 var _ resource.ResourceWithImportState = &ForgeWorkerResource{}
 
-// ForgeWorkerResource implements a Terraform resource for a Forge worker.
 type ForgeWorkerResource struct {
 	client *forge_client.Client
 }
@@ -54,7 +50,6 @@ type ForgeWorkerResourceModel struct {
 	CreatedAt        types.String `tfsdk:"created_at"`
 }
 
-// NewForgeWorkerResource returns a new instance.
 func NewForgeWorkerResource() resource.Resource {
 	return &ForgeWorkerResource{}
 }
@@ -65,6 +60,7 @@ func (r *ForgeWorkerResource) Metadata(ctx context.Context, req resource.Metadat
 
 func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "Forge worker resource. This resource allows you to manage workers in Forge.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Computed: true,
@@ -74,18 +70,21 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The ID of the server where the worker is created.",
 			},
 			"site_id": schema.Int64Attribute{
 				Required: true,
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The ID of the site where the worker is created.",
 			},
 			"worker_connection": schema.StringAttribute{
 				Required: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The connection string for the worker. Like `sync`, `database`, `beanstalkd`, `sqs`, `redis`...",
 			},
 			"timeout": schema.Int64Attribute{
 				Optional: true,
@@ -94,6 +93,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The timeout for the worker in seconds. Default is 60 seconds.",
 			},
 			"sleep": schema.Int64Attribute{
 				Optional: true,
@@ -102,6 +102,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The sleep time for the worker in seconds. Default is 3 seconds.",
 			},
 			"tries": schema.Int64Attribute{
 				Optional: true,
@@ -110,6 +111,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The number of tries for the worker. Default is 0 (unlimited).",
 			},
 			"processes": schema.Int64Attribute{
 				Optional: true,
@@ -118,6 +120,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The number of processes for the worker. Default is 1.",
 			},
 			"stop_wait_secs": schema.Int64Attribute{
 				Optional: true,
@@ -126,6 +129,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The number of seconds to wait for the worker to stop. Default is 10 seconds. You should ensure that the value of stopwaitsecs is greater than the number of seconds consumed by your longest running job. Otherwise, Supervisor may kill the job before it is finished processing.",
 			},
 			"delay": schema.Int64Attribute{
 				Optional: true,
@@ -134,6 +138,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The delay time for the worker in seconds. Default is 0 seconds.",
 			},
 			"daemon": schema.BoolAttribute{
 				Optional: true,
@@ -142,6 +147,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "Whether the worker should run as a daemon. Default is true.",
 			},
 			"force": schema.BoolAttribute{
 				Optional: true,
@@ -150,6 +156,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "To force your queue workers to process jobs even if maintenance mode is enabled, you may use force option.",
 			},
 			"php_version": schema.StringAttribute{
 				Optional: true,
@@ -158,6 +165,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The PHP version to use for the worker. Default is 'php' (System default).",
 			},
 			"queue": schema.StringAttribute{
 				Optional: true,
@@ -165,6 +173,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplaceIfConfigured(),
 				},
+				MarkdownDescription: "The queue name for the worker. Default is empty string (no specific queue).",
 			},
 			"memory": schema.Int64Attribute{
 				Optional: true,
@@ -173,6 +182,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The memory limit for the worker in megabytes. Default is 128 MB.",
 			},
 			"directory": schema.StringAttribute{
 				Optional: true,
@@ -180,6 +190,7 @@ func (r *ForgeWorkerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+				MarkdownDescription: "The directory where the worker is located. Default is empty string (current directory).",
 			},
 			"command": schema.StringAttribute{
 				Computed: true,
@@ -205,6 +216,15 @@ func (r *ForgeWorkerResource) Configure(ctx context.Context, req resource.Config
 		resp.Diagnostics.AddError(
 			"Unexpected Provider Configure Type",
 			fmt.Sprintf("Expected *providerConfig, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+		return
+	}
+
+	if providerConfig.Forge == nil {
+		resp.Diagnostics.AddError(
+			"Forge Client Not Configured",
+			"This resource requires the Forge API token to be configured in the provider. "+
+				"Please set the 'forge_api_token' attribute in the provider configuration.",
 		)
 		return
 	}

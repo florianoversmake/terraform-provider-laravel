@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -39,6 +37,7 @@ func (d *ForgeCredentialsDataSource) Metadata(ctx context.Context, req datasourc
 
 func (d *ForgeCredentialsDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "Data source for listing Forge credentials. Use the `filter` block to specify the criteria for filtering credentials.",
 		Blocks: map[string]schema.Block{
 			"filter": schema.ListNestedBlock{
 				NestedObject: schema.NestedBlockObject{
@@ -88,6 +87,15 @@ func (d *ForgeCredentialsDataSource) Configure(ctx context.Context, req datasour
 		return
 	}
 
+	if providerConfig.Forge == nil {
+		resp.Diagnostics.AddError(
+			"Forge Client Not Configured",
+			"This resource requires the Forge API token to be configured in the provider. "+
+				"Please set the 'forge_api_token' attribute in the provider configuration.",
+		)
+		return
+	}
+
 	d.client = providerConfig.Forge
 }
 
@@ -99,14 +107,13 @@ func (d *ForgeCredentialsDataSource) Read(ctx context.Context, req datasource.Re
 		return
 	}
 
-	// Assume a client.ListActions method is implemented.
 	credentials, err := d.client.ListCredentials(ctx)
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading actions", err.Error())
 		return
 	}
 
-	filteredCredentials := filterCredentials(credentials, state.Filters)
+	filteredCredentials := filterForgeCredentials(credentials, state.Filters)
 
 	var credentialModels []ForgeCredentialModel
 	for _, c := range filteredCredentials {
@@ -122,7 +129,7 @@ func (d *ForgeCredentialsDataSource) Read(ctx context.Context, req datasource.Re
 	resp.Diagnostics.Append(diags...)
 }
 
-func filterCredentials(credentials []forge_client.Credential, filters []Filter) []forge_client.Credential {
+func filterForgeCredentials(credentials []forge_client.Credential, filters []Filter) []forge_client.Credential {
 	if len(filters) == 0 {
 		return credentials
 	}
@@ -153,14 +160,4 @@ func filterCredentials(credentials []forge_client.Credential, filters []Filter) 
 	}
 
 	return filtered
-}
-
-// Helper function to check if a value matches any filter criteria.
-func matchesFilter(value string, filterValues []types.String) bool {
-	for _, v := range filterValues {
-		if value == v.ValueString() {
-			return true
-		}
-	}
-	return false
 }

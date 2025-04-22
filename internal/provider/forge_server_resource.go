@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -9,7 +7,6 @@ import (
 	"terraform-provider-laravel/internal/forge_client"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -118,6 +115,7 @@ func (r *ForgeServerResource) Metadata(ctx context.Context, req resource.Metadat
 
 func (r *ForgeServerResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "Forge server resource. This resource allows you to manage servers in Forge.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Computed: true,
@@ -329,6 +327,15 @@ func (r *ForgeServerResource) Configure(ctx context.Context, req resource.Config
 		return
 	}
 
+	if providerConfig.Forge == nil {
+		resp.Diagnostics.AddError(
+			"Forge Client Not Configured",
+			"This resource requires the Forge API token to be configured in the provider. "+
+				"Please set the 'forge_api_token' attribute in the provider configuration.",
+		)
+		return
+	}
+
 	r.client = providerConfig.Forge
 }
 
@@ -349,41 +356,6 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
-	}
-
-	if plan.ServerProvider.ValueString() == "custom" {
-		if plan.IpAddress.IsNull() {
-			resp.Diagnostics.AddAttributeError(path.Root("ip_address"), "missing ip_address", "ip_address is required when provider is custom")
-		}
-		if plan.PrivateIpAddress.IsNull() {
-			resp.Diagnostics.AddAttributeError(path.Root("private_ip_address"), "missing private_ip_address", "private_ip_address is required when provider is custom")
-		}
-	} else {
-		if plan.CredentialID.IsNull() {
-			resp.Diagnostics.AddAttributeError(path.Root("credential_id"), "missing credential_id", "credential_id is required when provider is not custom")
-		}
-		if !plan.IpAddress.IsNull() {
-			resp.Diagnostics.AddAttributeError(path.Root("ip_address"), "invalid ip_address", "ip_address is not allowed when provider is not custom")
-		}
-		if !plan.PrivateIpAddress.IsNull() {
-			resp.Diagnostics.AddAttributeError(path.Root("private_ip_address"), "invalid private_ip_address", "private_ip_address is not allowed when provider is not custom")
-		}
-
-		if plan.ServerProvider.ValueString() == "aws" {
-			if plan.AwsVpcID.IsNull() {
-				resp.Diagnostics.AddAttributeError(path.Root("aws_vpc_id"), "missing aws_vpc_id", "aws_vpc_id is required when provider is aws")
-			}
-			if plan.AwsSubnetID.IsNull() {
-				resp.Diagnostics.AddAttributeError(path.Root("aws_subnet_id"), "missing aws_subnet_id", "aws_subnet_id is required when provider is aws")
-			}
-		} else {
-			if !plan.AwsVpcID.IsNull() {
-				resp.Diagnostics.AddAttributeError(path.Root("aws_vpc_id"), "invalid aws_vpc_id", "aws_vpc_id is not allowed when provider is not aws")
-			}
-			if !plan.AwsSubnetID.IsNull() {
-				resp.Diagnostics.AddAttributeError(path.Root("aws_subnet_id"), "invalid aws_subnet_id", "aws_subnet_id is not allowed when provider is not aws")
-			}
-		}
 	}
 
 	networkElements := make([]int64, 0)
@@ -425,6 +397,14 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
+	plan.ID = types.Int64Value(response.Server.ID)
+	plan.Identifier = types.StringValue(response.Server.Identifier)
+	plan.IsReady = types.BoolValue(response.Server.IsReady)
+	plan.SudoPassword = types.StringValue(response.SudoPassword)
+	plan.DatabasePassword = types.StringPointerValue(response.DatabasePassword)
+	plan.MeilisearchPassword = types.StringPointerValue(response.MeilisearchPassword)
+	plan.ProvisionCommand = types.StringPointerValue(response.ProvisionCommand)
+
 	// wait for server to be ready
 	err = r.client.WaitForServerToBeReady(ctx, int(response.Server.ID))
 	if err != nil {
@@ -432,18 +412,19 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	plan.ID = types.Int64Value(response.Server.ID)
-	plan.IpAddress = types.StringPointerValue(response.Server.IPAddress)
-	plan.PrivateIpAddress = types.StringPointerValue(response.Server.PrivateIPAddress)
-	plan.SshPort = types.Int32Value(int32(response.Server.SSHPort))
-	plan.Identifier = types.StringValue(response.Server.Identifier)
-	plan.LocalPublicKey = types.StringValue(response.Server.LocalPublicKey)
-	plan.Revoked = types.BoolValue(response.Server.Revoked)
-	plan.IsReady = types.BoolValue(response.Server.IsReady)
-	plan.SudoPassword = types.StringValue(response.SudoPassword)
-	plan.DatabasePassword = types.StringPointerValue(response.DatabasePassword)
-	plan.MeilisearchPassword = types.StringPointerValue(response.MeilisearchPassword)
-	plan.ProvisionCommand = types.StringPointerValue(response.ProvisionCommand)
+	server, err := r.client.GetServer(ctx, int(response.Server.ID))
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting server", err.Error())
+		return
+	}
+
+	plan.IpAddress = types.StringPointerValue(server.IPAddress)
+	plan.PrivateIpAddress = types.StringPointerValue(server.PrivateIPAddress)
+	plan.SshPort = types.Int32Value(int32(server.SSHPort))
+	plan.Identifier = types.StringValue(server.Identifier)
+	plan.LocalPublicKey = types.StringValue(server.LocalPublicKey)
+	plan.Revoked = types.BoolValue(server.Revoked)
+	plan.IsReady = types.BoolValue(server.IsReady)
 
 	regionId, err := r.client.GetRegionIDByName(ctx, plan.ServerProvider.ValueString(), response.Server.Region)
 	if err != nil {

@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -13,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -96,16 +95,20 @@ func (r *EnvoyerProjectResource) Schema(ctx context.Context, req resource.Schema
 			"retain_deployments": schema.Int64Attribute{
 				MarkdownDescription: "Number of deployments to retain.",
 				Optional:            true,
+				Computed:            true,
+				Default:             int64default.StaticInt64(5),
 			},
 			"monitor": schema.StringAttribute{
 				MarkdownDescription: "Uptime monitoring URL (optional).",
 				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString(""),
 			},
 			"composer_dev": schema.BoolAttribute{
 				MarkdownDescription: "Installation of dev dependencies.",
 				Optional:            true,
 				Computed:            true,
-				Default:             booldefault.StaticBool(false),
+				Default:             booldefault.StaticBool(true),
 			},
 			"composer": schema.BoolAttribute{
 				MarkdownDescription: "Installation of dependencies.",
@@ -145,6 +148,15 @@ func (r *EnvoyerProjectResource) Configure(ctx context.Context, req resource.Con
 		return
 	}
 
+	if providerConfig.Envoyer == nil {
+		resp.Diagnostics.AddError(
+			"Envoyer Client Not Configured",
+			"This resource requires the Envoyer API token to be configured in the provider. "+
+				"Please set the 'envoyer_api_token' attribute in the provider configuration.",
+		)
+		return
+	}
+
 	r.client = providerConfig.Envoyer
 }
 
@@ -158,8 +170,6 @@ func (r *EnvoyerProjectResource) Create(ctx context.Context, req resource.Create
 
 	// fix repo
 	// git@github.com:laravel/laravel.git -> laravel/laravel
-
-	originalRepo := plan.Repository.ValueString()
 	splitRepo := strings.Split(plan.Repository.ValueString(), ":")
 	if len(splitRepo) != 2 {
 		resp.Diagnostics.AddError("Invalid repository format", "Expected format: git@github.com:laravel/laravel.git")
@@ -168,14 +178,12 @@ func (r *EnvoyerProjectResource) Create(ctx context.Context, req resource.Create
 
 	fixRepo := strings.TrimSuffix(splitRepo[1], ".git")
 
-	plan.Repository = types.StringValue(fixRepo)
-
 	// >>> CALL Envoyer's CreateProject endpoint here:
 	// e.g.,
 	envoyerReq := envoyer_client.CreateProjectRequest{
 		Name:              plan.Name.ValueString(),
 		Provider:          plan.RepoProvider.ValueString(),
-		Repository:        plan.Repository.ValueString(),
+		Repository:        fixRepo,
 		Branch:            plan.Branch.ValueString(),
 		Type:              plan.Type.ValueString(),
 		RetainDeployments: int(plan.RetainDeployments.ValueInt64()),
@@ -197,7 +205,6 @@ func (r *EnvoyerProjectResource) Create(ctx context.Context, req resource.Create
 
 	// Set the ID in the state so Terraform knows it's created.
 	plan.ID = types.Int64Value(createdProject.ID)
-	plan.Repository = types.StringValue(originalRepo)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -227,12 +234,27 @@ func (r *EnvoyerProjectResource) Read(ctx context.Context, req resource.ReadRequ
 
 	tflog.Debug(ctx, "Read Envoyer project", map[string]any{
 		"project_id": projID,
+		"repository": project.Repository,
+		"branch":     project.Branch,
 	})
+
+	if !state.Repository.IsNull() && state.Repository.ValueString() != project.Repository {
+		splitRepo := strings.Split(state.Repository.ValueString(), ":")
+		if len(splitRepo) != 2 {
+			resp.Diagnostics.AddError("Invalid repository format", "Expected format: git@github.com:laravel/laravel.git")
+			return
+		}
+		fixRepo := strings.TrimSuffix(splitRepo[1], ".git")
+
+		if fixRepo != project.Repository {
+			state.Repository = types.StringValue(project.Repository)
+		}
+	}
 
 	// Set the state to the latest data from Envoyer
 	state.Name = types.StringValue(project.Name)
 	state.RepoProvider = types.StringValue(project.Provider)
-	state.Repository = types.StringValue(project.Repository)
+
 	state.Branch = types.StringValue(project.Branch)
 	state.Type = types.StringValue(project.Type)
 	state.RetainDeployments = types.Int64Value(project.RetainDeployments)
@@ -281,7 +303,30 @@ func (r *EnvoyerProjectResource) Update(ctx context.Context, req resource.Update
 		"project_id": projID,
 	})
 
-	// Save the updated state.
+	// fix repo
+	// git@github.com:laravel/laravel.git -> laravel/laravel
+	splitRepo := strings.Split(plan.Repository.ValueString(), ":")
+	if len(splitRepo) != 2 {
+		resp.Diagnostics.AddError("Invalid repository format", "Expected format: git@github.com:laravel/laravel.git")
+		return
+	}
+
+	fixRepo := strings.TrimSuffix(splitRepo[1], ".git")
+
+	envoyerSourceReq := envoyer_client.UpdateProjectSourceRequest{
+		Provider:     plan.RepoProvider.ValueString(),
+		Repository:   fixRepo,
+		Branch:       plan.Branch.ValueString(),
+		PushToDeploy: false,
+	}
+
+	err = r.client.UpdateProjectSource(ctx, int(projID), envoyerSourceReq)
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating Envoyer project source", err.Error())
+		return
+	}
+
+	// redundancy
 	plan.ID = types.Int64Value(projID)
 	plan.Name = types.StringValue(plan.Name.ValueString())
 	plan.Monitor = types.StringValue(plan.Monitor.ValueString())
@@ -290,6 +335,7 @@ func (r *EnvoyerProjectResource) Update(ctx context.Context, req resource.Update
 	plan.ComposerDev = types.BoolValue(plan.ComposerDev.ValueBool())
 	plan.ComposerQuiet = types.BoolValue(plan.ComposerQuiet.ValueBool())
 	plan.DeleteProtection = types.BoolValue(plan.DeleteProtection.ValueBool())
+	plan.Repository = types.StringValue(plan.Repository.ValueString())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

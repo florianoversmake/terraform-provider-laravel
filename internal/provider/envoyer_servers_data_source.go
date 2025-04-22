@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -50,6 +48,7 @@ func (d *EnvoyerServersDataSource) Metadata(ctx context.Context, req datasource.
 
 func (d *EnvoyerServersDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "Data source for listing Envoyer servers. Use the `project_id` attribute to specify the project.",
 		Attributes: map[string]schema.Attribute{
 			"project_id": schema.Int64Attribute{
 				Description: "The ID of the project to list servers for",
@@ -91,6 +90,15 @@ func (d *EnvoyerServersDataSource) Configure(ctx context.Context, req datasource
 		resp.Diagnostics.AddError(
 			"Unexpected Provider Configure Type",
 			fmt.Sprintf("Expected *providerConfig, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+		return
+	}
+
+	if providerConfig.Envoyer == nil {
+		resp.Diagnostics.AddError(
+			"Envoyer Client Not Configured",
+			"This resource requires the Envoyer API token to be configured in the provider. "+
+				"Please set the 'envoyer_api_token' attribute in the provider configuration.",
 		)
 		return
 	}

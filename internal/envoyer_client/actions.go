@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package envoyer_client
 
 import (
@@ -43,10 +41,10 @@ type CreateHookRequest struct {
 	// ProjectID is not sent as part of the JSON payload;
 	// it is used to build the endpoint URL.
 	ProjectID int64   `json:"-"`
-	ActionID  int64   `json:"action_id"`
+	ActionID  int64   `json:"actionId"`
 	Timing    string  `json:"timing"`
 	Name      string  `json:"name"`
-	RunAs     string  `json:"run_as"`
+	RunAs     string  `json:"runAs"`
 	Script    string  `json:"script"`
 	Servers   []int64 `json:"servers,omitempty"`
 }

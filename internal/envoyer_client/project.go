@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package envoyer_client
 
 import (
@@ -181,4 +179,76 @@ func (c *Client) CreateLinkedFolder(ctx context.Context, projectID int, folder C
 func (c *Client) DeleteLinkedFolder(ctx context.Context, projectID int, folder CreateLinkedFolderRequest) error {
 	path := fmt.Sprintf("/projects/%d/folders", projectID)
 	return c.doRequest(ctx, http.MethodDelete, path, folder, nil)
+}
+
+type deploymentsResponse struct {
+	Deployments []Deployment `json:"deployments"`
+}
+type deploymentResponse struct {
+	Deployment Deployment `json:"deployment"`
+}
+type Deployment struct {
+	ID            int64     `json:"id"`
+	ProjectID     int64     `json:"project_id"`
+	UserID        int64     `json:"user_id"`
+	CommitBranch  string    `json:"commit_branch"`
+	CommitHash    string    `json:"commit_hash"`
+	CommitMessage string    `json:"commit_message"`
+	CommitAuthor  string    `json:"commit_author"`
+	CommitAvatar  string    `json:"commit_avatar"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// ListProjectDeployments retrieves all deployments for a project.
+func (c *Client) ListProjectDeployments(ctx context.Context, projectID int) ([]Deployment, error) {
+	path := fmt.Sprintf("/projects/%d/deployments", projectID)
+	var resp deploymentsResponse
+	if err := c.doRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Deployments, nil
+}
+
+// GetProjectDeployment retrieves a specific deployment by its ID.
+func (c *Client) GetProjectDeployment(ctx context.Context, projectID, deploymentID int) (*Deployment, error) {
+	path := fmt.Sprintf("/projects/%d/deployments/%d", projectID, deploymentID)
+	var resp deploymentResponse
+	if err := c.doRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp.Deployment, nil
+}
+
+// CreateProjectDeploymentRequest is the payload to create a new deployment.
+type CreateProjectDeploymentRequest struct {
+	Branch *string `json:"branch,omitempty"`
+	Tag    *string `json:"tag,omitempty"`
+	From   string  `json:"from"`
+}
+
+// CreateProjectDeployment creates a new deployment for a project.
+func (c *Client) CreateProjectDeployment(ctx context.Context, projectID int, req CreateProjectDeploymentRequest) error {
+	path := fmt.Sprintf("/projects/%d/deployments", projectID)
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
+}
+
+func (c *Client) WaitFoirDeploymentToFinish(ctx context.Context, projectID, deploymentID int) (*Deployment, error) {
+	for {
+		deployment, err := c.GetProjectDeployment(ctx, projectID, deploymentID)
+		if err != nil {
+			return nil, err
+		}
+		if deployment.Status == "finished" || deployment.Status == "error" {
+			return deployment, nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(5 * time.Second):
+			// Continue to the next iteration
+		}
+	}
 }

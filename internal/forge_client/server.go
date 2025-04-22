@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package forge_client
 
 import (
@@ -63,7 +61,16 @@ func (c *Client) ListServers(ctx context.Context) ([]Server, error) {
 func (c *Client) GetServer(ctx context.Context, serverID int) (*Server, error) {
 	path := fmt.Sprintf("/servers/%d", serverID)
 	var resp serverResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+	if err := c.Get(ctx, path, &resp); err != nil {
+		return nil, err
+	}
+	return &resp.Server, nil
+}
+
+func (c *Client) GetServerWithoutCache(ctx context.Context, serverID int) (*Server, error) {
+	path := fmt.Sprintf("/servers/%d", serverID)
+	var resp serverResponse
+	if err := c.GetWithoutCache(ctx, path, &resp); err != nil {
 		return nil, err
 	}
 	return &resp.Server, nil
@@ -316,10 +323,8 @@ func (c *Client) RemovePapertrail(ctx context.Context, serverID int) error {
 }
 
 func (c *Client) WaitForServerToBeReady(ctx context.Context, serverID int) error {
-	// GetServerer and check the IsReady field every 10 seconds until it is true or the context is cancelled.
-
 	for {
-		server, err := c.GetServer(ctx, serverID)
+		server, err := c.GetServerWithoutCache(ctx, serverID)
 		if err != nil {
 			return err
 		}

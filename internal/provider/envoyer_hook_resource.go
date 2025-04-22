@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -13,6 +11,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -48,9 +48,13 @@ func (r *EnvoyerHookResource) Metadata(ctx context.Context, req resource.Metadat
 
 func (r *EnvoyerHookResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "Envoyer hook resource. This resource allows you to manage deployment hooks in Envoyer.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Computed: true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.Int64Attribute{
 				Required: true,
@@ -88,11 +92,25 @@ func (r *EnvoyerHookResource) Schema(ctx context.Context, req resource.SchemaReq
 }
 
 func (r *EnvoyerHookResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
 	providerConfig, ok := req.ProviderData.(*providerConfig)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Provider Configure Type",
 			fmt.Sprintf("Expected *providerConfig, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+		return
+	}
+
+	if providerConfig.Envoyer == nil {
+		resp.Diagnostics.AddError(
+			"Envoyer Client Not Configured",
+			"This resource requires the Envoyer API token to be configured in the provider. "+
+				"Please set the 'envoyer_api_token' attribute in the provider configuration.",
 		)
 		return
 	}
@@ -155,7 +173,8 @@ func (r *EnvoyerHookResource) Read(ctx context.Context, req resource.ReadRequest
 	state.Sequence = types.Int64Value(hook.Sequence)
 	state.CreatedAt = types.StringValue(hook.CreatedAt)
 	state.UpdatedAt = types.StringValue(hook.UpdatedAt)
-	state.Servers = convertIntSliceToList(hook.Servers)
+	// Does not get returned from the API
+	//state.Servers = convertIntSliceToList(hook.Servers)
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -163,7 +182,14 @@ func (r *EnvoyerHookResource) Read(ctx context.Context, req resource.ReadRequest
 
 func (r *EnvoyerHookResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan EnvoyerHookResourceModel
+	var state EnvoyerHookResourceModel
 	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	diags = req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -177,6 +203,10 @@ func (r *EnvoyerHookResource) Update(ctx context.Context, req resource.UpdateReq
 		resp.Diagnostics.AddError("Error updating hook", err.Error())
 		return
 	}
+
+	plan.Sequence = state.Sequence
+	plan.CreatedAt = state.CreatedAt
+	plan.UpdatedAt = state.UpdatedAt
 
 	// Refresh state
 	diags = resp.State.Set(ctx, plan)
@@ -233,11 +263,4 @@ func extractIntSliceFromList(list types.List) []int64 {
 		ints = append(ints, v.ValueInt64())
 	}
 	return ints
-}
-
-func convertIntSliceToList(ints []int64) types.List {
-	var values []int64
-	values = append(values, ints...)
-	list, _ := types.ListValueFrom(context.Background(), types.Int64Type, values)
-	return list
 }

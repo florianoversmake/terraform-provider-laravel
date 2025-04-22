@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -23,41 +21,40 @@ type providerConfig struct {
 // createProviderConfig creates and configures the API clients based on provider configuration.
 func createProviderConfig(ctx context.Context, config LaravelProviderModel) (*providerConfig, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	provConfig := &providerConfig{}
 
-	// Configure Forge client
-	forgeClient, forgeDiags := configureForgeClient(ctx, config)
-	diags.Append(forgeDiags...)
-	if diags.HasError() {
-		return nil, diags
+	// Configure Forge client if token is provided
+	if !config.ForgeAPIToken.IsNull() && !config.ForgeAPIToken.IsUnknown() {
+		forgeClient, forgeDiags := configureForgeClient(ctx, config)
+		diags.Append(forgeDiags...)
+		if !diags.HasError() {
+			provConfig.Forge = forgeClient
+			tflog.Info(ctx, "Forge client configured successfully")
+		}
+	} else {
+		tflog.Info(ctx, "Forge API token not provided, Forge client will not be configured")
 	}
 
-	// Configure Envoyer client
-	envoyerClient, envoyerDiags := configureEnvoyerClient(ctx, config)
-	diags.Append(envoyerDiags...)
-	if diags.HasError() {
-		return nil, diags
+	// Configure Envoyer client if token is provided
+	if !config.EnvoyerAPIToken.IsNull() && !config.EnvoyerAPIToken.IsUnknown() {
+		envoyerClient, envoyerDiags := configureEnvoyerClient(ctx, config)
+		diags.Append(envoyerDiags...)
+		if !diags.HasError() {
+			provConfig.Envoyer = envoyerClient
+			tflog.Info(ctx, "Envoyer client configured successfully")
+		}
+	} else {
+		tflog.Info(ctx, "Envoyer API token not provided, Envoyer client will not be configured")
 	}
 
-	return &providerConfig{
-		Forge:   forgeClient,
-		Envoyer: envoyerClient,
-	}, diags
+	return provConfig, diags
 }
 
 func configureForgeClient(ctx context.Context, config LaravelProviderModel) (*forge_client.Client, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	if config.ForgeAPIToken.IsNull() || config.ForgeAPIToken.IsUnknown() {
-		diags.AddError(
-			"Missing Forge API token",
-			"`forge_api_token` must be provided to authenticate with Forge.",
-		)
-		return nil, diags
-	}
-
 	forgeAPIToken := config.ForgeAPIToken.ValueString()
 	forgeBaseURL := forge_client.DefaultBaseURL
-
 	if !config.ForgeBaseURL.IsNull() && config.ForgeBaseURL.ValueString() != "" {
 		forgeBaseURL = strings.TrimSuffix(config.ForgeBaseURL.ValueString(), "/")
 	}
@@ -77,17 +74,14 @@ func configureForgeClient(ctx context.Context, config LaravelProviderModel) (*fo
 	if !config.MaxRetries.IsNull() {
 		retries := int(config.MaxRetries.ValueInt64())
 		retryDelay := 5 * time.Second
-
 		if !config.RetryDelay.IsNull() {
 			retryDelay = time.Duration(config.RetryDelay.ValueInt64()) * time.Second
 		}
-
 		client.WithRetryConfig(retries, retryDelay)
 	}
 
 	if !config.EnableCache.IsNull() && config.EnableCache.ValueBool() {
 		cache := forge_client.NewMemoryCache()
-
 		cacheConfig := forge_client.CacheConfig{
 			Enabled:             true,
 			TTL:                 5 * time.Minute,
@@ -127,23 +121,14 @@ func configureForgeClient(ctx context.Context, config LaravelProviderModel) (*fo
 func configureEnvoyerClient(ctx context.Context, config LaravelProviderModel) (*envoyer_client.Client, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	if config.EnvoyerAPIToken.IsNull() || config.EnvoyerAPIToken.IsUnknown() {
-		diags.AddError(
-			"Missing Envoyer API token",
-			"`envoyer_api_token` must be provided to authenticate with Envoyer.",
-		)
-		return nil, diags
-	}
-
 	envoyerAPIToken := config.EnvoyerAPIToken.ValueString()
-	envoyerEnvKey := ""
 
+	envoyerEnvKey := ""
 	if !config.EnvoyerEnvKey.IsNull() && config.EnvoyerEnvKey.ValueString() != "" {
 		envoyerEnvKey = config.EnvoyerEnvKey.ValueString()
 	}
 
 	envoyerBaseURL := envoyer_client.DefaultBaseURL
-
 	if !config.EnvoyerBaseURL.IsNull() && config.EnvoyerBaseURL.ValueString() != "" {
 		envoyerBaseURL = strings.TrimSuffix(config.EnvoyerBaseURL.ValueString(), "/")
 	}
@@ -151,6 +136,12 @@ func configureEnvoyerClient(ctx context.Context, config LaravelProviderModel) (*
 	// Create the client
 	client := envoyer_client.NewClient(envoyerAPIToken, envoyerEnvKey)
 	client.WithBaseURL(envoyerBaseURL)
+	// client.WithDebug(true)
+
+	tflog.Debug(ctx, "Configuring Envoyer client", map[string]interface{}{
+		"base_url": envoyerBaseURL,
+		"env_key":  envoyerEnvKey,
+	})
 
 	// Test the client with a basic request
 	_, err := client.ListProjects(ctx)

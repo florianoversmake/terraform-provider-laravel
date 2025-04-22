@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-
 package provider
 
 import (
@@ -14,11 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
-
-type Filter struct {
-	Name   types.String   `tfsdk:"name"`
-	Values []types.String `tfsdk:"values"`
-}
 
 var (
 	_ provider.Provider                       = &LaravelProvider{}
@@ -56,10 +49,9 @@ func (p *LaravelProvider) Metadata(ctx context.Context, req provider.MetadataReq
 func (p *LaravelProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			// Envoyer API Configuration
 			"envoyer_api_token": schema.StringAttribute{
-				MarkdownDescription: "Envoyer API token (Bearer token).",
-				Required:            true,
+				MarkdownDescription: "Envoyer API token (Bearer token). Required if using Envoyer resources/data sources.",
+				Optional:            true,
 				Sensitive:           true,
 			},
 			"envoyer_env_key": schema.StringAttribute{
@@ -71,19 +63,15 @@ func (p *LaravelProvider) Schema(ctx context.Context, req provider.SchemaRequest
 				MarkdownDescription: "Optional override of the Envoyer API base URL (defaults to `https://envoyer.io/api`).",
 				Optional:            true,
 			},
-
-			// Forge API Configuration
 			"forge_api_token": schema.StringAttribute{
-				MarkdownDescription: "Forge API token (Bearer token).",
-				Required:            true,
+				MarkdownDescription: "Forge API token (Bearer token). Required if using Forge resources/data sources.",
+				Optional:            true,
 				Sensitive:           true,
 			},
 			"forge_base_url": schema.StringAttribute{
 				MarkdownDescription: "Optional override of the Forge API base URL (defaults to `https://forge.laravel.com/api/v1`).",
 				Optional:            true,
 			},
-
-			// Advanced Configuration Options
 			"request_timeout": schema.Int64Attribute{
 				MarkdownDescription: "Timeout for API requests in seconds. Default is 30 seconds.",
 				Optional:            true,
@@ -117,7 +105,15 @@ func (p *LaravelProvider) Configure(ctx context.Context, req provider.ConfigureR
 		return
 	}
 
-	// Create provider configuration
+	if (config.ForgeAPIToken.IsNull() || config.ForgeAPIToken.IsUnknown()) &&
+		(config.EnvoyerAPIToken.IsNull() || config.EnvoyerAPIToken.IsUnknown()) {
+		resp.Diagnostics.AddError(
+			"Missing API Tokens",
+			"You must provide at least one of forge_api_token or envoyer_api_token depending on which services you need to use.",
+		)
+		return
+	}
+
 	providerConfig, diags := createProviderConfig(ctx, config)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -127,23 +123,33 @@ func (p *LaravelProvider) Configure(ctx context.Context, req provider.ConfigureR
 	resp.DataSourceData = providerConfig
 	resp.ResourceData = providerConfig
 
-	tflog.Info(ctx, "Laravel provider configured successfully")
+	if providerConfig.Forge != nil {
+		tflog.Info(ctx, "Laravel Forge client configured successfully")
+	}
+	if providerConfig.Envoyer != nil {
+		tflog.Info(ctx, "Laravel Envoyer client configured successfully")
+	}
 }
 
 func (p *LaravelProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewEnvoyerProjectResource,
+		NewEnvoyerDeploymentResource,
 		NewEnvoyerServerResource,
 		NewEnvoyerHookResource,
 		NewEnvoyerEnvironmentResource,
 		NewForgeServerResource,
 		NewForgeSiteResource,
 		NewForgeWorkerResource,
+		NewForgeRecipeResource,
+		NewForgeRecipeRunResource,
 		// NewForgeDaemonResource,
 		// NewForgeFirewallRuleResource,
-		// NewForgeSSHKeyResource,
-		// NewForgeSSLCertificateResource,
-		// NewForgeJobResource,
+		NewForgeSSHKeyResource,
+		NewForgeCertificateResource,
+		NewForgeCertificateSigningRequestResource,
+		NewForgeCertificateSigningRequestInstallationResource,
+		NewForgeScheduledJobResource,
 		// NewForgeDatabaseResource,
 		// NewForgeDatabaseUserResource,
 		// NewForgeNginxTemplateResource,
