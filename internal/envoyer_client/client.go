@@ -35,7 +35,7 @@ type Response struct {
 
 // JSON unmarshals the response body as JSON into the provided value.
 func (r *Response) JSON(v interface{}) error {
-	if r.Body == nil || len(r.Body) == 0 {
+	if len(r.Body) == 0 {
 		return fmt.Errorf("empty response body")
 	}
 	return json.Unmarshal(r.Body, v)

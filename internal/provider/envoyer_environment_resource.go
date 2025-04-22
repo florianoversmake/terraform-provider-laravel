@@ -83,7 +83,7 @@ func (r *EnvoyerEnvironmentResource) Configure(ctx context.Context, req resource
 	r.client = providerConfig.Envoyer
 }
 
-// validateConfig ensures that only one of contents or env_var blocks is used
+// validateConfig ensures that only one of contents or env_var blocks is used.
 func (r *EnvoyerEnvironmentResource) validateConfig(plan EnvoyerEnvironmentResourceModel) diag.Diagnostics {
 	var diags diag.Diagnostics
 
@@ -98,9 +98,6 @@ func (r *EnvoyerEnvironmentResource) validateConfig(plan EnvoyerEnvironmentResou
 
 	return diags
 }
-
-// Intentionally empty - these functions are now provided by the env_utils.go file
-// We'll use the enhanced versions from there instead of these simplified implementations
 
 func (r *EnvoyerEnvironmentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan EnvoyerEnvironmentResourceModel

@@ -8,7 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// Environment represents a parsed environment
+// Environment represents a parsed environment.
 type Environment struct {
 	Contents  string
 	Servers   []int64
@@ -89,7 +89,7 @@ func (c *Client) GetEnvironmentServers(ctx context.Context, projectID int) ([]in
 	return servers, nil
 }
 
-// ParseEnvironment parses raw environment contents into structured format
+// ParseEnvironment parses raw environment contents into structured format.
 func ParseEnvironment(contents string) map[string]string {
 	vars := make(map[string]string)
 
@@ -126,7 +126,7 @@ func ParseEnvironment(contents string) map[string]string {
 	return vars
 }
 
-// GetEnvironmentVariables retrieves and parses environment variables
+// GetEnvironmentVariables retrieves and parses environment variables.
 func (c *Client) GetEnvironmentVariables(ctx context.Context, projectID int) (map[string]string, error) {
 	contents, err := c.GetEnvironment(ctx, projectID)
 	if err != nil {
@@ -136,7 +136,7 @@ func (c *Client) GetEnvironmentVariables(ctx context.Context, projectID int) (ma
 	return ParseEnvironment(contents), nil
 }
 
-// GetEnvironmentVariable gets a specific environment variable
+// GetEnvironmentVariable gets a specific environment variable.
 func (c *Client) GetEnvironmentVariable(ctx context.Context, projectID int, key string) (string, bool, error) {
 	vars, err := c.GetEnvironmentVariables(ctx, projectID)
 	if err != nil {
@@ -147,7 +147,7 @@ func (c *Client) GetEnvironmentVariable(ctx context.Context, projectID int, key 
 	return value, exists, nil
 }
 
-// SetEnvironmentVariable sets a specific environment variable, preserving the rest
+// SetEnvironmentVariable sets a specific environment variable, preserving the rest.
 func (c *Client) SetEnvironmentVariable(ctx context.Context, projectID int, key, value string, servers []int64) error {
 	// Get current environment
 	contents, err := c.GetEnvironment(ctx, projectID)
@@ -239,7 +239,7 @@ func (c *Client) SetEnvironmentVariable(ctx context.Context, projectID int, key,
 	return err
 }
 
-// DeleteEnvironmentVariable removes a specific environment variable, preserving the rest
+// DeleteEnvironmentVariable removes a specific environment variable, preserving the rest.
 func (c *Client) DeleteEnvironmentVariable(ctx context.Context, projectID int, key string, servers []int64) error {
 	// Get current environment
 	contents, err := c.GetEnvironment(ctx, projectID)
@@ -334,7 +334,7 @@ func (c *Client) DeleteEnvironmentVariable(ctx context.Context, projectID int, k
 	return err
 }
 
-// BulkUpdateEnvironmentVariables updates multiple environment variables at once
+// BulkUpdateEnvironmentVariables updates multiple environment variables at once.
 func (c *Client) BulkUpdateEnvironmentVariables(ctx context.Context, projectID int, vars map[string]string, servers []int64) error {
 	// Get current environment
 	contents, err := c.GetEnvironment(ctx, projectID)

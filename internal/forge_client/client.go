@@ -146,7 +146,7 @@ type requestOptions struct {
 	retry               *retryOptions     // Custom retry options for this request
 }
 
-// retryOptions holds retry configuration for a request
+// retryOptions holds retry configuration for a request.
 type retryOptions struct {
 	maxRetries int
 	retryDelay time.Duration
@@ -216,7 +216,7 @@ type Response struct {
 
 // JSON unmarshals the response body as JSON into the provided value.
 func (r *Response) JSON(v interface{}) error {
-	if r.Body == nil || len(r.Body) == 0 {
+	if len(r.Body) == 0 {
 		return fmt.Errorf("empty response body")
 	}
 	return json.Unmarshal(r.Body, v)
@@ -686,8 +686,6 @@ func (c *Client) doRequest(ctx context.Context, method, path string, in, out any
 	return nil
 }
 
-// doRequestWithOptions is a wrapper around doRequestInternal that handles JSON unmarshaling
-// for the new API methods
 func (c *Client) doRequestWithOptions(ctx context.Context, method, path string, in, out any, opts ...RequestOption) error {
 	// Add JSON response format option if not specified
 	hasResponseFormat := false

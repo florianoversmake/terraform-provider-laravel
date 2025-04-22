@@ -312,7 +312,6 @@ func (r *ForgeScheduledJobResource) ImportState(ctx context.Context, req resourc
 	resp.Diagnostics.Append(diags...)
 }
 
-// parseCronExpressionIntoModel parses a cron expression string into the resource model
 func parseCronExpressionIntoModel(cronExpr string, model *ForgeScheduledJobResourceModel) error {
 	// Clean the cron expression by removing any extra spaces or characters
 	cronExpr = strings.TrimSpace(cronExpr)
