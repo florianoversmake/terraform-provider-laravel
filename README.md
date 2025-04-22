@@ -2,6 +2,12 @@
 
 A Terraform provider for managing Laravel Forge and Laravel Envoyer resources. This provider allows you to automate infrastructure provisioning and application deployment across these Laravel first-party services.
 
+The provider documentation is available at [Terraform Registry](https://registry.terraform.io/providers/florianoversmake/laravel/latest/docs).
+
+For more information about Laravel Forge, visit [Laravel Forge](https://forge.laravel.com/).
+
+For more information about Laravel Envoyer, visit [Laravel Envoyer](https://envoyer.io/).
+
 ## Features
 
 This provider allows you to manage resources across both Laravel Forge and Laravel Envoyer.
