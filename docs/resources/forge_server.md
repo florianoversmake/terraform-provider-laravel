@@ -63,6 +63,7 @@ resource "laravel_forge_server" "example" {
 - `credential_id` (Number)
 - `database` (String) The name of the database Forge should create when building the server. If omitted, forge will be used.
 - `database_type` (String) Valid values are mysql8, mariadb106, mariadb1011, mariadb114, postgres, postgres13, postgres14, postgres15, postgres16 or postgres17.
+- `delete_protection` (Boolean) This is a virtual attribute and not in the API. It is used to prevent accidental deletion of the server.
 - `disk_size` (Number)
 - `ip_address` (String)
 - `network` (List of Number) An array of server IDs that the server should be able to connect to.

@@ -30,21 +30,22 @@ type ForgeSiteResource struct {
 
 // Resource model.
 type ForgeSiteResourceModel struct {
-	ID            types.Int64  `tfsdk:"id"`
-	ServerID      types.Int64  `tfsdk:"server_id"`
-	Domain        types.String `tfsdk:"domain"`
-	ProjectType   types.String `tfsdk:"project_type"`
-	Aliases       types.List   `tfsdk:"aliases"`
-	Directory     types.String `tfsdk:"directory"`
-	Isolated      types.Bool   `tfsdk:"isolated"`
-	Username      types.String `tfsdk:"username"`
-	Database      types.String `tfsdk:"database"`
-	PHPVersion    types.String `tfsdk:"php_version"`
-	NginxTemplate types.String `tfsdk:"nginx_template"`
-	Wildcards     types.Bool   `tfsdk:"wildcards"`
-	Status        types.String `tfsdk:"status"`
-	CreatedAt     types.String `tfsdk:"created_at"`
-	WebDirectory  types.String `tfsdk:"web_directory"`
+	ID               types.Int64  `tfsdk:"id"`
+	ServerID         types.Int64  `tfsdk:"server_id"`
+	Domain           types.String `tfsdk:"domain"`
+	ProjectType      types.String `tfsdk:"project_type"`
+	Aliases          types.List   `tfsdk:"aliases"`
+	Directory        types.String `tfsdk:"directory"`
+	Isolated         types.Bool   `tfsdk:"isolated"`
+	Username         types.String `tfsdk:"username"`
+	Database         types.String `tfsdk:"database"`
+	PHPVersion       types.String `tfsdk:"php_version"`
+	NginxTemplate    types.String `tfsdk:"nginx_template"`
+	Wildcards        types.Bool   `tfsdk:"wildcards"`
+	Status           types.String `tfsdk:"status"`
+	CreatedAt        types.String `tfsdk:"created_at"`
+	WebDirectory     types.String `tfsdk:"web_directory"`
+	DeleteProtection types.Bool   `tfsdk:"delete_protection"`
 }
 
 func NewForgeSiteResource() resource.Resource {
@@ -123,6 +124,12 @@ func (r *ForgeSiteResource) Schema(ctx context.Context, req resource.SchemaReque
 			},
 			"web_directory": schema.StringAttribute{
 				Computed: true,
+			},
+			"delete_protection": schema.BoolAttribute{
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+				MarkdownDescription: "This is a virtual attribute and not in the API. It is used to prevent accidental deletion of the site.",
 			},
 		},
 	}
@@ -321,11 +328,16 @@ func (r *ForgeSiteResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
-	//err := r.client.DeleteSite(ctx, int(state.ServerID.ValueInt64()), int(state.ID.ValueInt64()))
-	// if err != nil {
-	// 	resp.Diagnostics.AddError("Error deleting site", err.Error())
-	// 	return
-	// }
+	// Check if delete protection is enabled.
+	if state.DeleteProtection.ValueBool() {
+		return
+	}
+	// Call the client to delete the site.
+	err := r.client.DeleteSite(ctx, int(state.ServerID.ValueInt64()), int(state.ID.ValueInt64()))
+	if err != nil {
+		resp.Diagnostics.AddError("Error deleting site", err.Error())
+		return
+	}
 }
 
 func (r *ForgeSiteResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

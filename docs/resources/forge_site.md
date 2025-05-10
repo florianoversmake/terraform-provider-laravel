@@ -37,6 +37,7 @@ resource "laravel_forge_site" "example" {
 
 - `aliases` (List of String) List of additional domain names (aliases) for the site.
 - `database` (String)
+- `delete_protection` (Boolean) This is a virtual attribute and not in the API. It is used to prevent accidental deletion of the site.
 - `isolated` (Boolean) Whether the site is isolated. If true, a username must be provided.
 - `nginx_template` (String)
 - `php_version` (String)

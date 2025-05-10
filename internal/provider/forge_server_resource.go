@@ -91,6 +91,8 @@ type ForgeServerResourceModel struct {
 	DatabasePassword    types.String `tfsdk:"database_password"`    // readonly, known after creation
 	MeilisearchPassword types.String `tfsdk:"meilisearch_password"` // readonly, known after creation
 	ProvisionCommand    types.String `tfsdk:"provision_command"`    // readonly, known after creation
+
+	DeleteProtection types.Bool `tfsdk:"delete_protection"` // virtual, not in API
 }
 
 type Tag struct {
@@ -307,6 +309,12 @@ func (r *ForgeServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+			},
+			"delete_protection": schema.BoolAttribute{
+				Computed:            true,
+				Optional:            true,
+				Default:             booldefault.StaticBool(false),
+				MarkdownDescription: "This is a virtual attribute and not in the API. It is used to prevent accidental deletion of the server.",
 			},
 		},
 	}
@@ -533,11 +541,23 @@ func (r *ForgeServerResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	updatePayload := forge_client.UpdateServerRequest{
+		Name:             plan.Name.ValueString(),
+		IPAddress:        plan.IpAddress.ValueString(),
+		PrivateIPAddress: plan.PrivateIpAddress.ValueString(),
+	}
 
-	// dump plan to console
-	//resp.Diagnostics.AddWarning("Dumping plan", fmt.Sprintf("%+v", plan))
-	//resp.Diagnostics.AddWarning("Dumping state", fmt.Sprintf("%+v", resp.State))
+	server, err := r.client.UpdateServer(ctx, int(plan.ID.ValueInt64()), updatePayload)
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating server", err.Error())
+		return
+	}
+
+	plan.Name = types.StringValue(server.Name)
+	plan.IpAddress = types.StringPointerValue(server.IPAddress)
+	plan.PrivateIpAddress = types.StringPointerValue(server.PrivateIPAddress)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *ForgeServerResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -548,11 +568,16 @@ func (r *ForgeServerResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	// err := r.client.DeleteServer(ctx, int(state.ID.ValueInt64()))
-	// if err != nil {
-	// 	resp.Diagnostics.AddError("Error deleting server", err.Error())
-	// 	return
-	// }
+	// Check if delete protection is enabled.
+	if state.DeleteProtection.ValueBool() {
+		return
+	}
+
+	err := r.client.DeleteServer(ctx, int(state.ID.ValueInt64()))
+	if err != nil {
+		resp.Diagnostics.AddError("Error deleting server", err.Error())
+		return
+	}
 }
 
 func (r *ForgeServerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
