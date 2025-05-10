@@ -32,13 +32,14 @@ func (c *Client) DisableQuickDeployment(ctx context.Context, serverID, siteID in
 
 func (c *Client) GetDeploymentScript(ctx context.Context, serverID, siteID int) (string, error) {
 	path := fmt.Sprintf("/servers/%d/sites/%d/deployment/script", serverID, siteID)
-	var res struct {
-		Script string `json:"script"`
-	}
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+
+	script, err := c.GetText(ctx, path)
+
+	if err != nil {
 		return "", err
 	}
-	return res.Script, nil
+
+	return script, nil
 }
 
 type UpdateDeploymentScriptRequest struct {

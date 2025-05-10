@@ -150,6 +150,7 @@ func (p *LaravelProvider) Resources(ctx context.Context) []func() resource.Resou
 		NewForgeCertificateSigningRequestResource,
 		NewForgeCertificateSigningRequestInstallationResource,
 		NewForgeScheduledJobResource,
+		NewForgeDeploymentSettingsResource,
 		// NewForgeDatabaseResource,
 		// NewForgeDatabaseUserResource,
 		// NewForgeNginxTemplateResource,
