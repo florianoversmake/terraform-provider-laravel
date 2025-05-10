@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces
+// Ensure provider defined types fully satisfy framework interfaces.
 var _ resource.Resource = &ForgeDeploymentSettingsResource{}
 var _ resource.ResourceWithImportState = &ForgeDeploymentSettingsResource{}
 
