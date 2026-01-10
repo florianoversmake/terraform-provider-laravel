@@ -32,6 +32,7 @@ type LaravelProviderModel struct {
 	// Forge Configuration
 	ForgeAPIToken types.String `tfsdk:"forge_api_token"`
 	ForgeBaseURL  types.String `tfsdk:"forge_base_url"`
+	ForgeOrgSlug  types.String `tfsdk:"forge_org_slug"`
 
 	// Advanced Configuration Options
 	RequestTimeout types.Int64 `tfsdk:"request_timeout"`
@@ -69,8 +70,13 @@ func (p *LaravelProvider) Schema(ctx context.Context, req provider.SchemaRequest
 				Sensitive:           true,
 			},
 			"forge_base_url": schema.StringAttribute{
-				MarkdownDescription: "Optional override of the Forge API base URL (defaults to `https://forge.laravel.com/api/v1`).",
+				MarkdownDescription: "Optional override of the Forge API base URL (defaults to `https://forge.laravel.com/api`).",
 				Optional:            true,
+			},
+			"forge_org_slug": schema.StringAttribute{
+				MarkdownDescription: "The organization slug for Laravel Forge. Required for all Forge API operations.",
+				Optional:            true,
+				Sensitive:           false,
 			},
 			"request_timeout": schema.Int64Attribute{
 				MarkdownDescription: "Timeout for API requests in seconds. Default is 30 seconds.",
@@ -169,6 +175,7 @@ func (p *LaravelProvider) DataSources(ctx context.Context) []func() datasource.D
 		NewEnvoyerServersDataSource,
 		NewEnvoyerActionsDataSource,
 		NewForgeCredentialsDataSource,
+		NewForgeOrganizationsDataSource,
 		// NewForgeServersDataSource,
 		// NewForgeSitesDataSource,
 		// NewForgePHPVersionsDataSource,

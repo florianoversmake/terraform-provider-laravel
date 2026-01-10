@@ -42,9 +42,9 @@ func (c *Client) ListRegions(ctx context.Context) (map[string][]Region, error) {
 		return regionsCache.data, nil
 	}
 
-	// Fetch regions from API
+	// Fetch regions from API using new providers endpoint
 	var res RegionsResponse
-	if err := c.doRequest(ctx, http.MethodGet, "/regions", nil, &res); err != nil {
+	if err := c.doRequest(ctx, http.MethodGet, "/providers", nil, &res); err != nil {
 		return nil, err
 	}
 

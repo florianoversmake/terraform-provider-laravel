@@ -15,11 +15,11 @@ type SSHKey struct {
 }
 
 type sshKeyResponse struct {
-	Key SSHKey `json:"key"`
+	Data SSHKey `json:"data"`
 }
 
 type sshKeysResponse struct {
-	Keys []SSHKey `json:"keys"`
+	Data []SSHKey `json:"data"`
 }
 
 type CreateSSHKeyRequest struct {
@@ -29,33 +29,33 @@ type CreateSSHKeyRequest struct {
 }
 
 func (c *Client) CreateSSHKey(ctx context.Context, serverID int, req CreateSSHKeyRequest) (*SSHKey, error) {
-	path := fmt.Sprintf("/servers/%d/keys", serverID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/ssh-keys", c.OrgSlug, serverID)
 	var res sshKeyResponse
 	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Key, nil
+	return &res.Data, nil
 }
 
 func (c *Client) ListSSHKeys(ctx context.Context, serverID int) ([]SSHKey, error) {
-	path := fmt.Sprintf("/servers/%d/keys", serverID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/ssh-keys", c.OrgSlug, serverID)
 	var res sshKeysResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return res.Keys, nil
+	return res.Data, nil
 }
 
 func (c *Client) GetSSHKey(ctx context.Context, serverID, keyID int) (*SSHKey, error) {
-	path := fmt.Sprintf("/servers/%d/keys/%d", serverID, keyID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/ssh-keys/%d", c.OrgSlug, serverID, keyID)
 	var res sshKeyResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return &res.Key, nil
+	return &res.Data, nil
 }
 
 func (c *Client) DeleteSSHKey(ctx context.Context, serverID, keyID int) error {
-	path := fmt.Sprintf("/servers/%d/keys/%d", serverID, keyID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/ssh-keys/%d", c.OrgSlug, serverID, keyID)
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }

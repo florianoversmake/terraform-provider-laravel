@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const DefaultBaseURL = "https://forge.laravel.com/api/v1"
+const DefaultBaseURL = "https://forge.laravel.com/api"
 
 // ResponseFormat represents the expected format of an API response.
 type ResponseFormat string
@@ -240,11 +240,35 @@ func (r *Response) IsSuccess() bool {
 	return r.StatusCode >= 200 && r.StatusCode < 300
 }
 
+// PaginationLinks represents pagination links in JSON:API format.
+type PaginationLinks struct {
+	First string `json:"first"`
+	Last  string `json:"last"`
+	Prev  string `json:"prev"`
+	Next  string `json:"next"`
+}
+
+// PaginationMeta represents pagination metadata in JSON:API format.
+type PaginationMeta struct {
+	Path       string `json:"path"`
+	PerPage    int    `json:"per_page"`
+	NextCursor string `json:"next_cursor"`
+	PrevCursor string `json:"prev_cursor"`
+}
+
+// PaginatedResponse represents a paginated JSON:API response.
+type PaginatedResponse[T any] struct {
+	Data  []T             `json:"data"`
+	Links PaginationLinks `json:"links"`
+	Meta  PaginationMeta  `json:"meta"`
+}
+
 // Client is the Forge API client.
 type Client struct {
 	httpClient    *http.Client
 	baseURL       string
 	ForgeAPIToken string
+	OrgSlug       string // Organization slug for API v2
 
 	// Configurable retry settings
 	MaxRetries int           // Maximum number of retries after receiving a 429
@@ -342,6 +366,12 @@ func (c *Client) startCleanupRoutine() {
 // WithBaseURL sets a custom base URL for the API.
 func (c *Client) WithBaseURL(baseURL string) *Client {
 	c.baseURL = strings.TrimSuffix(baseURL, "/")
+	return c
+}
+
+// WithOrgSlug sets the organization slug for API v2.
+func (c *Client) WithOrgSlug(slug string) *Client {
+	c.OrgSlug = slug
 	return c
 }
 
@@ -546,7 +576,8 @@ func (c *Client) doRequestInternal(ctx context.Context, method, path string, in 
 
 		switch reqOpts.responseFormat {
 		case ResponseFormatJSON:
-			req.Header.Set("Accept", "application/json")
+			// Use JSON:API content type for API v2
+			req.Header.Set("Accept", "application/vnd.api+json")
 		case ResponseFormatText:
 			req.Header.Set("Accept", "text/plain")
 		case ResponseFormatRaw:

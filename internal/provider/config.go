@@ -63,6 +63,11 @@ func configureForgeClient(ctx context.Context, config LaravelProviderModel) (*fo
 	client := forge_client.NewClient(forgeAPIToken)
 	client.WithBaseURL(forgeBaseURL)
 
+	// Configure organization slug
+	if !config.ForgeOrgSlug.IsNull() && config.ForgeOrgSlug.ValueString() != "" {
+		client.WithOrgSlug(config.ForgeOrgSlug.ValueString())
+	}
+
 	// Configure advanced options
 	if !config.RequestTimeout.IsNull() {
 		timeout := time.Duration(config.RequestTimeout.ValueInt64()) * time.Second

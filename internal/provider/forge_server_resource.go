@@ -405,22 +405,22 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	plan.ID = types.Int64Value(response.Server.ID)
-	plan.Identifier = types.StringValue(response.Server.Identifier)
-	plan.IsReady = types.BoolValue(response.Server.IsReady)
-	plan.SudoPassword = types.StringValue(response.SudoPassword)
-	plan.DatabasePassword = types.StringPointerValue(response.DatabasePassword)
-	plan.MeilisearchPassword = types.StringPointerValue(response.MeilisearchPassword)
-	plan.ProvisionCommand = types.StringPointerValue(response.ProvisionCommand)
+	plan.ID = types.Int64Value(response.Data.Server.ID)
+	plan.Identifier = types.StringValue(response.Data.Server.Identifier)
+	plan.IsReady = types.BoolValue(response.Data.Server.IsReady)
+	plan.SudoPassword = types.StringValue(response.Data.SudoPassword)
+	plan.DatabasePassword = types.StringPointerValue(response.Data.DatabasePassword)
+	plan.MeilisearchPassword = types.StringPointerValue(response.Data.MeilisearchPassword)
+	plan.ProvisionCommand = types.StringPointerValue(response.Data.ProvisionCommand)
 
 	// wait for server to be ready
-	err = r.client.WaitForServerToBeReady(ctx, int(response.Server.ID))
+	err = r.client.WaitForServerToBeReady(ctx, int(response.Data.Server.ID))
 	if err != nil {
 		resp.Diagnostics.AddError("Error waiting for server to be ready", err.Error())
 		return
 	}
 
-	server, err := r.client.GetServer(ctx, int(response.Server.ID))
+	server, err := r.client.GetServer(ctx, int(response.Data.Server.ID))
 	if err != nil {
 		resp.Diagnostics.AddError("Error getting server", err.Error())
 		return
@@ -434,7 +434,7 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 	plan.Revoked = types.BoolValue(server.Revoked)
 	plan.IsReady = types.BoolValue(server.IsReady)
 
-	regionId, err := r.client.GetRegionIDByName(ctx, plan.ServerProvider.ValueString(), response.Server.Region)
+	regionId, err := r.client.GetRegionIDByName(ctx, plan.ServerProvider.ValueString(), response.Data.Server.Region)
 	if err != nil {
 		resp.Diagnostics.AddError("Error getting region ID", err.Error())
 		return
@@ -442,7 +442,7 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 
 	plan.Region = types.StringValue(regionId)
 
-	sizeSize, err := r.client.GetRegionSizeSizeByID(ctx, plan.ServerProvider.ValueString(), regionId, response.Server.Size)
+	sizeSize, err := r.client.GetRegionSizeSizeByID(ctx, plan.ServerProvider.ValueString(), regionId, response.Data.Server.Size)
 	if err != nil {
 		resp.Diagnostics.AddError("Error getting size size", err.Error())
 		return
@@ -450,7 +450,7 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 
 	plan.Size = types.StringValue(sizeSize)
 
-	listValue, diags := types.ListValueFrom(ctx, types.Int64Type, response.Server.Network)
+	listValue, diags := types.ListValueFrom(ctx, types.Int64Type, response.Data.Server.Network)
 	if diags.HasError() {
 		resp.Diagnostics.Append(diags...)
 		return

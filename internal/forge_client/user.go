@@ -25,10 +25,10 @@ type User struct {
 
 func (c *Client) GetUser(ctx context.Context) (*User, error) {
 	var res struct {
-		User User `json:"user"`
+		Data User `json:"data"`
 	}
 	if err := c.doRequest(ctx, "GET", "/user", nil, &res); err != nil {
 		return nil, err
 	}
-	return &res.User, nil
+	return &res.Data, nil
 }

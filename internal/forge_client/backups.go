@@ -34,18 +34,18 @@ type Backup struct {
 }
 
 type backupResponse struct {
-	Backup Backup `json:"backup"`
+	Data Backup `json:"data"`
 }
 
 func (c *Client) ListBackupConfigurations(ctx context.Context, serverID int) ([]Backup, error) {
-	path := fmt.Sprintf("/servers/%d/backup-configs", serverID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/backup-configs", c.OrgSlug, serverID)
 	var res struct {
-		Backups []Backup `json:"backups"`
+		Data []Backup `json:"data"`
 	}
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return res.Backups, nil
+	return res.Data, nil
 }
 
 type BackupCredentials struct {
@@ -74,39 +74,40 @@ type CreateBackupConfigurationRequest struct {
 }
 
 func (c *Client) CreateBackupConfiguration(ctx context.Context, serverID int, req CreateBackupConfigurationRequest) (*Backup, error) {
-	path := fmt.Sprintf("/servers/%d/backup-configs", serverID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/backup-configs", c.OrgSlug, serverID)
 	var res backupResponse
 	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Backup, nil
+	return &res.Data, nil
 }
 
 func (c *Client) UpdateBackupConfiguration(ctx context.Context, serverID, backupID int, req CreateBackupConfigurationRequest) (*Backup, error) {
-	path := fmt.Sprintf("/servers/%d/backup-configs/%d", serverID, backupID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/backup-configs/%d", c.OrgSlug, serverID, backupID)
 	var res backupResponse
 	if err := c.doRequest(ctx, http.MethodPut, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Backup, nil
+	return &res.Data, nil
 }
 
 func (c *Client) GetBackupConfiguration(ctx context.Context, serverID, backupID int) (*Backup, error) {
-	path := fmt.Sprintf("/servers/%d/backup-configs/%d", serverID, backupID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/backup-configs/%d", c.OrgSlug, serverID, backupID)
 	var res backupResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return &res.Backup, nil
+	return &res.Data, nil
 }
 
 func (c *Client) RunBackupConfiguration(ctx context.Context, serverID, backupID int) error {
-	path := fmt.Sprintf("/servers/%d/backup-configs/%d", serverID, backupID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/backup-configs/%d/actions", c.OrgSlug, serverID, backupID)
+	req := map[string]string{"action": "run"}
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) DeleteBackupConfiguration(ctx context.Context, serverID, backupID int) error {
-	path := fmt.Sprintf("/servers/%d/backup-configs/%d", serverID, backupID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/backup-configs/%d", c.OrgSlug, serverID, backupID)
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -115,12 +116,12 @@ type RestoreBackupRequest struct {
 }
 
 func (c *Client) RestoreBackup(ctx context.Context, serverID, backupID, backupItemID int, database int) error {
-	path := fmt.Sprintf("/servers/%d/backup-configs/%d/backups/%d", serverID, backupID, backupItemID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/backup-configs/%d/backups/%d/restore", c.OrgSlug, serverID, backupID, backupItemID)
 	req := RestoreBackupRequest{Database: database}
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) DeleteBackup(ctx context.Context, serverID, backupID, backupItemID int) error {
-	path := fmt.Sprintf("/servers/%d/backup-configs/%d/backups/%d", serverID, backupID, backupItemID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/backup-configs/%d/backups/%d", c.OrgSlug, serverID, backupID, backupItemID)
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }

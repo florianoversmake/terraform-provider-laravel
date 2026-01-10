@@ -27,11 +27,11 @@ type Worker struct {
 }
 
 type workerResponse struct {
-	Worker Worker `json:"worker"`
+	Data Worker `json:"data"`
 }
 
 type workersResponse struct {
-	Workers []Worker `json:"workers"`
+	Data []Worker `json:"data"`
 }
 
 type CreateWorkerRequest struct {
@@ -51,21 +51,21 @@ type CreateWorkerRequest struct {
 }
 
 func (c *Client) ListWorkers(ctx context.Context, serverID int, siteID int) ([]Worker, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/workers", c.OrgSlug, serverID, siteID)
 	var res workersResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return res.Workers, nil
+	return res.Data, nil
 }
 
 func (c *Client) CreateWorker(ctx context.Context, serverID int, siteID int, req CreateWorkerRequest) (*Worker, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/workers", c.OrgSlug, serverID, siteID)
 	var res workerResponse
 	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Worker, nil
+	return &res.Data, nil
 }
 
 type ErrorWorkerNotFound struct {
@@ -79,7 +79,7 @@ func (e *ErrorWorkerNotFound) Error() string {
 }
 
 func (c *Client) GetWorker(ctx context.Context, serverID int, siteID int, workerID int) (*Worker, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers/%d", serverID, siteID, workerID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/workers/%d", c.OrgSlug, serverID, siteID, workerID)
 	var res workerResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		if _, ok := err.(*ClientErrorResourceNotFound); ok {
@@ -88,28 +88,31 @@ func (c *Client) GetWorker(ctx context.Context, serverID int, siteID int, worker
 		return nil, err
 	}
 
-	return &res.Worker, nil
+	return &res.Data, nil
 }
 
 func (c *Client) DeleteWorker(ctx context.Context, serverID int, siteID int, workerID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers/%d", serverID, siteID, workerID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/workers/%d", c.OrgSlug, serverID, siteID, workerID)
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
 func (c *Client) RestartWorker(ctx context.Context, serverID int, siteID int, workerID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers/%d/restart", serverID, siteID, workerID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/workers/%d/actions", c.OrgSlug, serverID, siteID, workerID)
+	req := map[string]string{"action": "restart"}
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 type workerOutputResponse struct {
-	Output string `json:"output"`
+	Data struct {
+		Output string `json:"output"`
+	} `json:"data"`
 }
 
 func (c *Client) GetWorkerOutput(ctx context.Context, serverID int, siteID int, workerID int) (string, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers/%d/output", serverID, siteID, workerID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/workers/%d/log", c.OrgSlug, serverID, siteID, workerID)
 	var res workerOutputResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return "", err
 	}
-	return res.Output, nil
+	return res.Data.Output, nil
 }
