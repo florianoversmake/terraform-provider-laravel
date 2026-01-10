@@ -175,6 +175,7 @@ func (p *LaravelProvider) DataSources(ctx context.Context) []func() datasource.D
 		NewEnvoyerServersDataSource,
 		NewEnvoyerActionsDataSource,
 		NewForgeCredentialsDataSource,
+		NewForgeOrganizationsDataSource,
 		// NewForgeServersDataSource,
 		// NewForgeSitesDataSource,
 		// NewForgePHPVersionsDataSource,
