@@ -21,8 +21,8 @@ type ForgeOrganizationsDataSource struct {
 }
 
 type ForgeOrganizationsDataSourceModel struct {
-	Filters       []Filter                  `tfsdk:"filter"`
-	Organizations []ForgeOrganizationModel  `tfsdk:"organizations"`
+	Filters       []Filter                 `tfsdk:"filter"`
+	Organizations []ForgeOrganizationModel `tfsdk:"organizations"`
 }
 
 type ForgeOrganizationModel struct {
