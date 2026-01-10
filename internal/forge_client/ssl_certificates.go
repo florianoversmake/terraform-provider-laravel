@@ -17,7 +17,7 @@ type SSLCertificate struct {
 }
 
 type certificateResponse struct {
-	Certificate SSLCertificate `json:"certificate"`
+	Data SSLCertificate `json:"data"`
 }
 
 type CreateCertificateRequest struct {
@@ -34,36 +34,36 @@ type CreateCertificateRequest struct {
 }
 
 func (c *Client) CreateCertificate(ctx context.Context, serverID, siteID int, req CreateCertificateRequest) (*SSLCertificate, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/certificates", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/certificates", c.OrgSlug, serverID, siteID)
 	var res certificateResponse
 	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Certificate, nil
+	return &res.Data, nil
 }
 
 func (c *Client) ListCertificates(ctx context.Context, serverID, siteID int) ([]SSLCertificate, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/certificates", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/certificates", c.OrgSlug, serverID, siteID)
 	var res struct {
-		Certificates []SSLCertificate `json:"certificates"`
+		Data []SSLCertificate `json:"data"`
 	}
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return res.Certificates, nil
+	return res.Data, nil
 }
 
 func (c *Client) GetCertificate(ctx context.Context, serverID, siteID, certID int) (*SSLCertificate, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/certificates/%d", serverID, siteID, certID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/certificates/%d", c.OrgSlug, serverID, siteID, certID)
 	var res certificateResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return &res.Certificate, nil
+	return &res.Data, nil
 }
 
 func (c *Client) GetCertificateCSR(ctx context.Context, serverID, siteID, certID int) (string, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/certificates/%d/csr", serverID, siteID, certID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/certificates/%d/csr", c.OrgSlug, serverID, siteID, certID)
 
 	csr, err := c.GetText(ctx, path)
 	if err != nil {
@@ -78,17 +78,19 @@ type InstallCertificateRequest struct {
 }
 
 func (c *Client) InstallCertificate(ctx context.Context, serverID, siteID, certID int, req InstallCertificateRequest) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/certificates/%d/install", serverID, siteID, certID)
-	return c.doRequest(ctx, http.MethodPost, path, req, nil)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/certificates/%d/actions", c.OrgSlug, serverID, siteID, certID)
+	actionReq := map[string]interface{}{"action": "install", "certificate": req.Certificate, "add_intermediates": req.AddIntermediates}
+	return c.doRequest(ctx, http.MethodPost, path, actionReq, nil)
 }
 
 func (c *Client) ActivateCertificate(ctx context.Context, serverID, siteID, certID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/certificates/%d/activate", serverID, siteID, certID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/certificates/%d/actions", c.OrgSlug, serverID, siteID, certID)
+	req := map[string]string{"action": "activate"}
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) DeleteCertificate(ctx context.Context, serverID, siteID, certID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/certificates/%d", serverID, siteID, certID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/certificates/%d", c.OrgSlug, serverID, siteID, certID)
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -124,14 +126,14 @@ type ObtainLetsencryptCertificate struct {
 }
 
 type ObtainLetsencryptCertificateResponse struct {
-	Certificate ObtainLetsencryptCertificate `json:"certificate"`
+	Data ObtainLetsencryptCertificate `json:"data"`
 }
 
 func (c *Client) ObtainLetsencryptCertificate(ctx context.Context, serverID, siteID int, req ObtainLetsencryptCertificateRequest) (*ObtainLetsencryptCertificate, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/letsencrypt", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/certificates/letsencrypt", c.OrgSlug, serverID, siteID)
 	var res ObtainLetsencryptCertificateResponse
 	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Certificate, nil
+	return &res.Data, nil
 }

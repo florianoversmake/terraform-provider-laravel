@@ -28,54 +28,56 @@ type CreateJobRequest struct {
 }
 
 type jobResponse struct {
-	Job Job `json:"job"`
+	Data Job `json:"data"`
 }
 
 type jobsResponse struct {
-	Jobs []Job `json:"jobs"`
+	Data []Job `json:"data"`
 }
 
 func (c *Client) CreateJob(ctx context.Context, serverID int, req CreateJobRequest) (*Job, error) {
-	path := fmt.Sprintf("/servers/%d/jobs", serverID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/scheduled-jobs", c.OrgSlug, serverID)
 	var res jobResponse
 	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Job, nil
+	return &res.Data, nil
 }
 
 func (c *Client) ListJobs(ctx context.Context, serverID int) ([]Job, error) {
-	path := fmt.Sprintf("/servers/%d/jobs", serverID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/scheduled-jobs", c.OrgSlug, serverID)
 	var res jobsResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return res.Jobs, nil
+	return res.Data, nil
 }
 
 func (c *Client) GetJob(ctx context.Context, serverID, jobID int) (*Job, error) {
-	path := fmt.Sprintf("/servers/%d/jobs/%d", serverID, jobID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/scheduled-jobs/%d", c.OrgSlug, serverID, jobID)
 	var res jobResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return &res.Job, nil
+	return &res.Data, nil
 }
 
 func (c *Client) DeleteJob(ctx context.Context, serverID, jobID int) error {
-	path := fmt.Sprintf("/servers/%d/jobs/%d", serverID, jobID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/scheduled-jobs/%d", c.OrgSlug, serverID, jobID)
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
 type jobOutputResponse struct {
-	Output string `json:"output"`
+	Data struct {
+		Output string `json:"output"`
+	} `json:"data"`
 }
 
 func (c *Client) GetJobOutput(ctx context.Context, serverID, jobID int) (string, error) {
-	path := fmt.Sprintf("/servers/%d/jobs/%d/output", serverID, jobID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/scheduled-jobs/%d/log", c.OrgSlug, serverID, jobID)
 	var res jobOutputResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return "", err
 	}
-	return res.Output, nil
+	return res.Data.Output, nil
 }

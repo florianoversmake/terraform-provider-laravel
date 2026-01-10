@@ -46,38 +46,38 @@ type CreateSiteRequest struct {
 }
 
 type siteResponse struct {
-	Site Site `json:"site"`
+	Data Site `json:"data"`
 }
 
 type sitesResponse struct {
-	Sites []Site `json:"sites"`
+	Data []Site `json:"data"`
 }
 
 func (c *Client) CreateSite(ctx context.Context, serverID int, req CreateSiteRequest) (*Site, error) {
-	path := fmt.Sprintf("/servers/%d/sites", serverID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites", c.OrgSlug, serverID)
 	var res siteResponse
 	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Site, nil
+	return &res.Data, nil
 }
 
 func (c *Client) ListSites(ctx context.Context, serverID int) ([]Site, error) {
-	path := fmt.Sprintf("/servers/%d/sites", serverID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites", c.OrgSlug, serverID)
 	var res sitesResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return res.Sites, nil
+	return res.Data, nil
 }
 
 func (c *Client) GetSite(ctx context.Context, serverID, siteID int) (*Site, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d", c.OrgSlug, serverID, siteID)
 	var res siteResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return &res.Site, nil
+	return &res.Data, nil
 }
 
 type UpdateSiteRequest struct {
@@ -89,12 +89,12 @@ type UpdateSiteRequest struct {
 }
 
 func (c *Client) UpdateSite(ctx context.Context, serverID, siteID int, req UpdateSiteRequest) (*Site, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d", c.OrgSlug, serverID, siteID)
 	var res siteResponse
 	if err := c.doRequest(ctx, http.MethodPut, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Site, nil
+	return &res.Data, nil
 }
 
 type ChangeSitePHPVersionRequest struct {
@@ -102,7 +102,7 @@ type ChangeSitePHPVersionRequest struct {
 }
 
 func (c *Client) ChangeSitePHPVersion(ctx context.Context, serverID, siteID int, version string) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/php", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/php", c.OrgSlug, serverID, siteID)
 	req := ChangeSitePHPVersionRequest{Version: version}
 	return c.doRequest(ctx, http.MethodPut, path, req, nil)
 }
@@ -112,17 +112,17 @@ type AddSiteAliasesRequest struct {
 }
 
 func (c *Client) AddSiteAliases(ctx context.Context, serverID, siteID int, aliases []string) (*Site, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/aliases", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/aliases", c.OrgSlug, serverID, siteID)
 	req := AddSiteAliasesRequest{Aliases: aliases}
 	var res siteResponse
 	if err := c.doRequest(ctx, http.MethodPut, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Site, nil
+	return &res.Data, nil
 }
 
 func (c *Client) DeleteSite(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d", c.OrgSlug, serverID, siteID)
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -140,37 +140,39 @@ type UpdateBalancingRequest struct {
 }
 
 type balancingResponse struct {
-	Nodes []balancingNode `json:"nodes"`
+	Data []balancingNode `json:"data"`
 }
 
 func (c *Client) GetSiteBalancing(ctx context.Context, serverID, siteID int) ([]balancingNode, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/balancing", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/balancing", c.OrgSlug, serverID, siteID)
 	var res balancingResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return res.Nodes, nil
+	return res.Data, nil
 }
 
 func (c *Client) UpdateSiteBalancing(ctx context.Context, serverID, siteID int, req UpdateBalancingRequest) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/balancing", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/balancing", c.OrgSlug, serverID, siteID)
 	return c.doRequest(ctx, http.MethodPut, path, req, nil)
 }
 
 type siteLogResponse struct {
-	Content string `json:"content"`
+	Data struct {
+		Content string `json:"content"`
+	} `json:"data"`
 }
 
 func (c *Client) GetSiteLog(ctx context.Context, serverID, siteID int) (string, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/logs", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/logs", c.OrgSlug, serverID, siteID)
 	var res siteLogResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return "", err
 	}
-	return res.Content, nil
+	return res.Data.Content, nil
 }
 
 func (c *Client) ClearSiteLog(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/logs", serverID, siteID)
+	path := fmt.Sprintf("/orgs/%s/servers/%d/sites/%d/logs", c.OrgSlug, serverID, siteID)
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }

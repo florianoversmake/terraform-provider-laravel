@@ -15,11 +15,11 @@ type Recipe struct {
 }
 
 type recipeResponse struct {
-	Recipe Recipe `json:"recipe"`
+	Data Recipe `json:"data"`
 }
 
 type recipesResponse struct {
-	Recipes []Recipe `json:"recipes"`
+	Data []Recipe `json:"data"`
 }
 
 type CreateRecipeRequest struct {
@@ -29,43 +29,43 @@ type CreateRecipeRequest struct {
 }
 
 func (c *Client) CreateRecipe(ctx context.Context, req CreateRecipeRequest) (*Recipe, error) {
-	path := "/recipes"
+	path := fmt.Sprintf("/orgs/%s/recipes", c.OrgSlug)
 	var res recipeResponse
 	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Recipe, nil
+	return &res.Data, nil
 }
 
 func (c *Client) ListRecipes(ctx context.Context) ([]Recipe, error) {
-	path := "/recipes"
+	path := fmt.Sprintf("/orgs/%s/recipes", c.OrgSlug)
 	var res recipesResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return res.Recipes, nil
+	return res.Data, nil
 }
 
 func (c *Client) GetRecipe(ctx context.Context, recipeID int) (*Recipe, error) {
-	path := fmt.Sprintf("/recipes/%d", recipeID)
+	path := fmt.Sprintf("/orgs/%s/recipes/%d", c.OrgSlug, recipeID)
 	var res recipeResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return &res.Recipe, nil
+	return &res.Data, nil
 }
 
 func (c *Client) UpdateRecipe(ctx context.Context, recipeID int, req CreateRecipeRequest) (*Recipe, error) {
-	path := fmt.Sprintf("/recipes/%d", recipeID)
+	path := fmt.Sprintf("/orgs/%s/recipes/%d", c.OrgSlug, recipeID)
 	var res recipeResponse
 	if err := c.doRequest(ctx, http.MethodPut, path, req, &res); err != nil {
 		return nil, err
 	}
-	return &res.Recipe, nil
+	return &res.Data, nil
 }
 
 func (c *Client) DeleteRecipe(ctx context.Context, recipeID int) error {
-	path := fmt.Sprintf("/recipes/%d", recipeID)
+	path := fmt.Sprintf("/orgs/%s/recipes/%d", c.OrgSlug, recipeID)
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -75,6 +75,6 @@ type RunRecipeRequest struct {
 }
 
 func (c *Client) RunRecipe(ctx context.Context, recipeID int, req RunRecipeRequest) error {
-	path := fmt.Sprintf("/recipes/%d/run", recipeID)
+	path := fmt.Sprintf("/orgs/%s/recipes/%d/runs", c.OrgSlug, recipeID)
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }

@@ -2,6 +2,7 @@ package forge_client
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 )
 
@@ -12,13 +13,14 @@ type Credential struct {
 }
 
 type credentialsResponse struct {
-	Credentials []Credential `json:"credentials"`
+	Data []Credential `json:"data"`
 }
 
 func (c *Client) ListCredentials(ctx context.Context) ([]Credential, error) {
+	path := fmt.Sprintf("/orgs/%s/server-credentials", c.OrgSlug)
 	var res credentialsResponse
-	if err := c.doRequest(ctx, http.MethodGet, "/credentials", nil, &res); err != nil {
+	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
 		return nil, err
 	}
-	return res.Credentials, nil
+	return res.Data, nil
 }
