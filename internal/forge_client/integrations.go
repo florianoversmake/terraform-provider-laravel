@@ -27,27 +27,27 @@ type HorizonStatus struct {
 }
 
 func (c *Client) CheckHorizonStatus(ctx context.Context, serverID, siteID int) (*HorizonStatus, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/horizon", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/horizon", serverID, siteID))
 	var res HorizonStatus
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	if _, err := c.GetJsonApi(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
 }
 
 func (c *Client) EnableHorizon(ctx context.Context, serverID, siteID int) (*IntegrationDaemon, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/horizon", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/horizon", serverID, siteID))
 	var res struct {
 		Daemon IntegrationDaemon `json:"daemon"`
 	}
-	if err := c.doRequest(ctx, http.MethodPost, path, nil, &res); err != nil {
+	if _, err := c.PostJsonApi(ctx, path, nil, &res); err != nil {
 		return nil, err
 	}
 	return &res.Daemon, nil
 }
 
 func (c *Client) DisableHorizon(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/horizon", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/horizon", serverID, siteID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -64,28 +64,28 @@ type EnableOctaneRequest struct {
 }
 
 func (c *Client) CheckOctaneStatus(ctx context.Context, serverID, siteID int) (*OctaneStatus, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/octane", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/octane", serverID, siteID))
 	var res OctaneStatus
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	if _, err := c.GetJsonApi(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
 }
 
 func (c *Client) EnableOctane(ctx context.Context, serverID, siteID int, port int, serverType string) (*IntegrationDaemon, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/octane", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/octane", serverID, siteID))
 	req := EnableOctaneRequest{Port: port, Server: serverType}
 	var res struct {
 		Daemon IntegrationDaemon `json:"daemon"`
 	}
-	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
+	if _, err := c.PostJsonApi(ctx, path, req, &res); err != nil {
 		return nil, err
 	}
 	return &res.Daemon, nil
 }
 
 func (c *Client) DisableOctane(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/octane", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/octane", serverID, siteID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -106,16 +106,16 @@ type EnableReverbRequest struct {
 }
 
 func (c *Client) CheckReverbStatus(ctx context.Context, serverID, siteID int) (*ReverbStatus, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/reverb", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/reverb", serverID, siteID))
 	var res ReverbStatus
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	if _, err := c.GetJsonApi(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
 }
 
 func (c *Client) EnableReverb(ctx context.Context, serverID, siteID int, port int, host string, connections int) (*IntegrationDaemon, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/reverb", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/reverb", serverID, siteID))
 	req := EnableReverbRequest{Port: port, Host: host, Connections: connections}
 	var res struct {
 		Daemon            IntegrationDaemon `json:"daemon"`
@@ -123,14 +123,14 @@ func (c *Client) EnableReverb(ctx context.Context, serverID, siteID int, port in
 		ReverbPort        int               `json:"reverb_port"`
 		ReverbConnections int               `json:"reverb_connections"`
 	}
-	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
+	if _, err := c.PostJsonApi(ctx, path, req, &res); err != nil {
 		return nil, err
 	}
 	return &res.Daemon, nil
 }
 
 func (c *Client) DisableReverb(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/reverb", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/reverb", serverID, siteID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -142,27 +142,27 @@ type PulseStatus struct {
 }
 
 func (c *Client) CheckPulseStatus(ctx context.Context, serverID, siteID int) (*PulseStatus, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/pulse", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/pulse", serverID, siteID))
 	var res PulseStatus
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	if _, err := c.GetJsonApi(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
 }
 
 func (c *Client) EnablePulse(ctx context.Context, serverID, siteID int) (*IntegrationDaemon, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/pulse", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/pulse", serverID, siteID))
 	var res struct {
 		Daemon IntegrationDaemon `json:"daemon"`
 	}
-	if err := c.doRequest(ctx, http.MethodPost, path, nil, &res); err != nil {
+	if _, err := c.PostJsonApi(ctx, path, nil, &res); err != nil {
 		return nil, err
 	}
 	return &res.Daemon, nil
 }
 
 func (c *Client) DisablePulse(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/pulse", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/pulse", serverID, siteID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -178,28 +178,28 @@ type EnableInertiaRequest struct {
 }
 
 func (c *Client) CheckInertiaStatus(ctx context.Context, serverID, siteID int) (*InertiaStatus, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/inertia", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/inertia", serverID, siteID))
 	var res InertiaStatus
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	if _, err := c.GetJsonApi(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
 }
 
 func (c *Client) EnableInertia(ctx context.Context, serverID, siteID int, deploysRestart bool) (*IntegrationDaemon, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/inertia", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/inertia", serverID, siteID))
 	req := EnableInertiaRequest{DeploysRestartInertiaDaemon: deploysRestart}
 	var res struct {
 		Daemon IntegrationDaemon `json:"daemon"`
 	}
-	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
+	if _, err := c.PostJsonApi(ctx, path, req, &res); err != nil {
 		return nil, err
 	}
 	return &res.Daemon, nil
 }
 
 func (c *Client) DisableInertia(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/inertia", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/inertia", serverID, siteID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -216,22 +216,22 @@ type EnableLaravelMaintenanceRequest struct {
 }
 
 func (c *Client) CheckLaravelMaintenance(ctx context.Context, serverID, siteID int) (*LaravelMaintenanceStatus, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-maintenance", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-maintenance", serverID, siteID))
 	var res LaravelMaintenanceStatus
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	if _, err := c.GetJsonApi(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
 }
 
 func (c *Client) EnableLaravelMaintenance(ctx context.Context, serverID, siteID int, secret string, status int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-maintenance", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-maintenance", serverID, siteID))
 	req := EnableLaravelMaintenanceRequest{Secret: secret, Status: status}
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) DisableLaravelMaintenance(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-maintenance", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-maintenance", serverID, siteID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -252,9 +252,9 @@ type LaravelSchedulerStatus struct {
 }
 
 func (c *Client) CheckLaravelScheduler(ctx context.Context, serverID, siteID int) (*LaravelSchedulerStatus, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-scheduler", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-scheduler", serverID, siteID))
 	var res LaravelSchedulerStatus
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	if _, err := c.GetJsonApi(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -272,18 +272,18 @@ type LaravelSchedulerJob struct {
 }
 
 func (c *Client) EnableLaravelScheduler(ctx context.Context, serverID, siteID int) (*LaravelSchedulerJob, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-scheduler", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-scheduler", serverID, siteID))
 	var res struct {
 		Job LaravelSchedulerJob `json:"job"`
 	}
-	if err := c.doRequest(ctx, http.MethodPost, path, nil, &res); err != nil {
+	if _, err := c.PostJsonApi(ctx, path, nil, &res); err != nil {
 		return nil, err
 	}
 	return &res.Job, nil
 }
 
 func (c *Client) DisableLaravelScheduler(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-scheduler", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/integrations/laravel-scheduler", serverID, siteID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -293,9 +293,9 @@ type ComposerCredentialsResponse struct {
 }
 
 func (c *Client) GetComposerPackagesAuth(ctx context.Context, serverID, siteID int) (*ComposerCredentialsResponse, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/packages", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/packages", serverID, siteID))
 	var res ComposerCredentialsResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	if _, err := c.GetJsonApi(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -310,6 +310,6 @@ type UpdateComposerPackagesAuthRequest struct {
 }
 
 func (c *Client) UpdateComposerPackagesAuth(ctx context.Context, serverID, siteID int, req UpdateComposerPackagesAuthRequest) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/packages", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/packages", serverID, siteID))
 	return c.doRequest(ctx, http.MethodPut, path, req, nil)
 }

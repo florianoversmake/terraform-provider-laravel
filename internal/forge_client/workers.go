@@ -7,65 +7,43 @@ import (
 )
 
 type Worker struct {
-	ID                    int64   `json:"id"`
-	Connection            string  `json:"connection"`
-	Command               string  `json:"command"`
-	Queue                 *string `json:"queue"`
-	Timeout               int     `json:"timeout"`
-	Delay                 int     `json:"delay"`
-	Sleep                 int     `json:"sleep"`
-	Tries                 *int    `json:"tries"`
-	Processes             int     `json:"processes"`
-	StopWaitSecs          *int    `json:"stopwaitsecs"`
-	Environment           *string `json:"environment"`
-	PHPVersion            string  `json:"php_version"`
-	Daemon                bool    `json:"daemon"`
-	Force                 bool    `json:"force"`
-	Status                string  `json:"status"`
-	CreatedAt             string  `json:"created_at"`
-	DisplayablePHPVersion string  `json:"displayable_php_version"`
-}
-
-type workerResponse struct {
-	Worker Worker `json:"worker"`
-}
-
-type workersResponse struct {
-	Workers []Worker `json:"workers"`
+	ID        int64   `json:"id"`
+	Command   string  `json:"command"`
+	User      string  `json:"user"`
+	Directory *string `json:"directory"`
+	Processes int     `json:"processes"`
+	Status    string  `json:"status"`
+	CreatedAt string  `json:"created_at"`
 }
 
 type CreateWorkerRequest struct {
-	Connection   string  `json:"connection"`
-	TimeOut      int     `json:"timeout"`
-	Delay        int     `json:"delay"`
-	Sleep        int     `json:"sleep"`
-	Tries        *int    `json:"tries"`
+	Name         string  `json:"name"`
+	Command      string  `json:"command"`
+	User         string  `json:"user"`
+	Directory    *string `json:"directory,omitempty"`
 	Processes    int     `json:"processes"`
+	StartSecs    *int    `json:"startsecs,omitempty"`
 	StopWaitSecs *int    `json:"stopwaitsecs,omitempty"`
-	Daemon       bool    `json:"daemon"`
-	Force        bool    `json:"force"`
-	PHPVersion   string  `json:"php_version"`
-	Queue        *string `json:"queue"`
-	Memory       int     `json:"memory"`
-	Directory    string  `json:"directory"`
+	StopSignal   *string `json:"stopsignal,omitempty"`
 }
 
 func (c *Client) ListWorkers(ctx context.Context, serverID int, siteID int) ([]Worker, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers", serverID, siteID)
-	var res workersResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	items, err := c.GetJsonApiList(ctx, c.orgPath(fmt.Sprintf("/servers/%d/background-processes", serverID)))
+	if err != nil {
 		return nil, err
 	}
-	return res.Workers, nil
+	return unmarshalList(items, func(w *Worker, id int64) { w.ID = id })
 }
 
 func (c *Client) CreateWorker(ctx context.Context, serverID int, siteID int, req CreateWorkerRequest) (*Worker, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers", serverID, siteID)
-	var res workerResponse
-	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/background-processes", serverID))
+	var worker Worker
+	id, err := c.PostJsonApi(ctx, path, req, &worker)
+	if err != nil {
 		return nil, err
 	}
-	return &res.Worker, nil
+	worker.ID = int64(id)
+	return &worker, nil
 }
 
 type ErrorWorkerNotFound struct {
@@ -79,37 +57,40 @@ func (e *ErrorWorkerNotFound) Error() string {
 }
 
 func (c *Client) GetWorker(ctx context.Context, serverID int, siteID int, workerID int) (*Worker, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers/%d", serverID, siteID, workerID)
-	var res workerResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/background-processes/%d", serverID, workerID))
+	var worker Worker
+	id, err := c.GetJsonApi(ctx, path, &worker)
+	if err != nil {
 		if _, ok := err.(*ClientErrorResourceNotFound); ok {
 			return nil, &ErrorWorkerNotFound{ServerID: serverID, SiteID: siteID, WorkerID: workerID}
 		}
 		return nil, err
 	}
-
-	return &res.Worker, nil
+	worker.ID = int64(id)
+	return &worker, nil
 }
 
 func (c *Client) DeleteWorker(ctx context.Context, serverID int, siteID int, workerID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers/%d", serverID, siteID, workerID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/background-processes/%d", serverID, workerID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
 func (c *Client) RestartWorker(ctx context.Context, serverID int, siteID int, workerID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers/%d/restart", serverID, siteID, workerID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
-}
-
-type workerOutputResponse struct {
-	Output string `json:"output"`
+	path := c.orgPath(fmt.Sprintf("/servers/%d/background-processes/%d/actions", serverID, workerID))
+	req := struct {
+		Action string `json:"action"`
+	}{Action: "restart"}
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) GetWorkerOutput(ctx context.Context, serverID int, siteID int, workerID int) (string, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/workers/%d/output", serverID, siteID, workerID)
-	var res workerOutputResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/background-processes/%d/log", serverID, workerID))
+	var logRes struct {
+		Content string `json:"content"`
+	}
+	_, err := c.GetJsonApi(ctx, path, &logRes)
+	if err != nil {
 		return "", err
 	}
-	return res.Output, nil
+	return logRes.Content, nil
 }

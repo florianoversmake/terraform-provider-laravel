@@ -7,39 +7,49 @@ import (
 )
 
 type Deployment struct {
-	ID              int64  `json:"id"`
-	ServerID        int64  `json:"server_id"`
-	SiteID          int64  `json:"site_id"`
-	Type            int    `json:"type"`
-	CommitHash      string `json:"commit_hash"`
-	CommitAuthor    string `json:"commit_author"`
-	CommitMessage   string `json:"commit_message"`
-	StartedAt       string `json:"started_at"`
-	EndedAt         string `json:"ended_at"`
-	Status          string `json:"status"`
-	DisplayableType string `json:"displayable_type"`
+	ID        int64             `json:"id"`
+	Status    string            `json:"status"`
+	Type      string            `json:"type"`
+	StartedAt string            `json:"started_at"`
+	EndedAt   string            `json:"ended_at"`
+	CreatedAt string            `json:"created_at"`
+	UpdatedAt string            `json:"updated_at"`
+	Commit    *DeploymentCommit `json:"commit"`
+}
+
+type DeploymentCommit struct {
+	Hash    *string `json:"hash"`
+	Author  *string `json:"author"`
+	Message *string `json:"message"`
+	Branch  *string `json:"branch"`
+}
+
+type DeploymentScript struct {
+	Content    *string `json:"content"`
+	AutoSource bool    `json:"auto_source"`
 }
 
 func (c *Client) EnableQuickDeployment(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deployment", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployments/push-to-deploy", serverID, siteID))
 	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
 }
 
 func (c *Client) DisableQuickDeployment(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deployment", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployments/push-to-deploy", serverID, siteID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
 func (c *Client) GetDeploymentScript(ctx context.Context, serverID, siteID int) (string, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deployment/script", serverID, siteID)
-
-	script, err := c.GetText(ctx, path)
-
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployments/script", serverID, siteID))
+	var script DeploymentScript
+	_, err := c.GetJsonApi(ctx, path, &script)
 	if err != nil {
 		return "", err
 	}
-
-	return script, nil
+	if script.Content == nil {
+		return "", nil
+	}
+	return *script.Content, nil
 }
 
 type UpdateDeploymentScriptRequest struct {
@@ -48,68 +58,55 @@ type UpdateDeploymentScriptRequest struct {
 }
 
 func (c *Client) UpdateDeploymentScript(ctx context.Context, serverID, siteID int, req UpdateDeploymentScriptRequest) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deployment/script", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployments/script", serverID, siteID))
 	return c.doRequest(ctx, http.MethodPut, path, req, nil)
 }
 
 func (c *Client) DeployNow(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deployment/deploy", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployments", serverID, siteID))
 	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
 }
 
 func (c *Client) ResetDeploymentStatus(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deployment/reset", serverID, siteID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployments/status", serverID, siteID))
+	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
 func (c *Client) GetDeploymentLog(ctx context.Context, serverID, siteID int) (string, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deployment/log", serverID, siteID)
-	var res struct {
-		Log string `json:"log"`
-	}
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	// Get the latest deployment first
+	deployments, err := c.ListDeployments(ctx, serverID, siteID)
+	if err != nil {
 		return "", err
 	}
-	return res.Log, nil
-}
-
-type deploymentsResponse struct {
-	Deployments []Deployment `json:"deployments"`
-}
-
-type deploymentResponse struct {
-	Deployment Deployment `json:"deployment"`
+	if len(deployments) == 0 {
+		return "", nil
+	}
+	return c.GetDeploymentOutput(ctx, serverID, siteID, int(deployments[0].ID))
 }
 
 func (c *Client) ListDeployments(ctx context.Context, serverID, siteID int) ([]Deployment, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deployment-history", serverID, siteID)
-	var res deploymentsResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployments", serverID, siteID))
+	items, err := c.GetJsonApiList(ctx, path)
+	if err != nil {
 		return nil, err
 	}
-	return res.Deployments, nil
+	return unmarshalList(items, func(d *Deployment, id int64) { d.ID = id })
 }
 
 func (c *Client) GetDeployment(ctx context.Context, serverID, siteID, deploymentID int) (*Deployment, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deployment-history/%d", serverID, siteID, deploymentID)
-	var res deploymentResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployments/%d", serverID, siteID, deploymentID))
+	var deployment Deployment
+	id, err := c.GetJsonApi(ctx, path, &deployment)
+	if err != nil {
 		return nil, err
 	}
-	return &res.Deployment, nil
-}
-
-type deploymentOutputResponse struct {
-	Output string `json:"output"`
+	deployment.ID = int64(id)
+	return &deployment, nil
 }
 
 func (c *Client) GetDeploymentOutput(ctx context.Context, serverID, siteID, deploymentID int) (string, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deployment-history/%d/output", serverID, siteID, deploymentID)
-	var res deploymentOutputResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
-		return "", err
-	}
-	return res.Output, nil
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployments/%d/log", serverID, siteID, deploymentID))
+	return c.GetText(ctx, path)
 }
 
 type DeploymentFailureEmailsRequest struct {
@@ -117,7 +114,7 @@ type DeploymentFailureEmailsRequest struct {
 }
 
 func (c *Client) SetDeploymentFailureEmails(ctx context.Context, serverID, siteID int, emails []string) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deployment-failure-emails", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployment-failure-emails", serverID, siteID))
 	req := DeploymentFailureEmailsRequest{Emails: emails}
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }

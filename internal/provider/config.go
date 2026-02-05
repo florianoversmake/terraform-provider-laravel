@@ -59,9 +59,15 @@ func configureForgeClient(ctx context.Context, config LaravelProviderModel) (*fo
 		forgeBaseURL = strings.TrimSuffix(config.ForgeBaseURL.ValueString(), "/")
 	}
 
+	forgeOrganization := ""
+	if !config.ForgeOrganization.IsNull() && config.ForgeOrganization.ValueString() != "" {
+		forgeOrganization = config.ForgeOrganization.ValueString()
+	}
+
 	// Create the client
 	client := forge_client.NewClient(forgeAPIToken)
 	client.WithBaseURL(forgeBaseURL)
+	client.WithOrganization(forgeOrganization)
 
 	// Configure advanced options
 	if !config.RequestTimeout.IsNull() {

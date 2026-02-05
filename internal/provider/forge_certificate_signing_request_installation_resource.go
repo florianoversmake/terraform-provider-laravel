@@ -14,18 +14,18 @@ import (
 
 var _ resource.Resource = &ForgeCertificateSigningRequestInstallationResource{}
 
-// ForgeCertificateSigningRequestInstallationResource implements a Terraform resource for a Forge site.
+// ForgeCertificateSigningRequestInstallationResource implements a Terraform resource for installing a certificate.
 type ForgeCertificateSigningRequestInstallationResource struct {
 	client *forge_client.Client
 }
 
 // Resource model.
 type ForgeCertificateSigningRequestInstallationResourceModel struct {
-	CertificateSigningRequestID types.Int64  `tfsdk:"certificate_signing_request_id"`
-	ServerID                    types.Int64  `tfsdk:"server_id"`
-	SiteID                      types.Int64  `tfsdk:"site_id"`
-	Certificate                 types.String `tfsdk:"certificate"`
-	AddIntermediates            types.Bool   `tfsdk:"add_intermediates"`
+	DomainID         types.Int64  `tfsdk:"domain_id"`
+	ServerID         types.Int64  `tfsdk:"server_id"`
+	SiteID           types.Int64  `tfsdk:"site_id"`
+	Certificate      types.String `tfsdk:"certificate"`
+	AddIntermediates types.Bool   `tfsdk:"add_intermediates"`
 }
 
 func NewForgeCertificateSigningRequestInstallationResource() resource.Resource {
@@ -38,11 +38,11 @@ func (r *ForgeCertificateSigningRequestInstallationResource) Metadata(ctx contex
 
 func (r *ForgeCertificateSigningRequestInstallationResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Forge certificate signing request installation resource. This resource allows you to install a certificate signing request on a server in Forge.",
+		MarkdownDescription: "Forge certificate signing request installation resource. This resource allows you to install a certificate on a domain in Forge.",
 		Attributes: map[string]schema.Attribute{
-			"certificate_signing_request_id": schema.Int64Attribute{
+			"domain_id": schema.Int64Attribute{
 				Required:            true,
-				MarkdownDescription: "The ID of the certificate signing request.",
+				MarkdownDescription: "The ID of the domain record to install the certificate on.",
 			},
 			"server_id": schema.Int64Attribute{
 				Required:            true,
@@ -107,8 +107,8 @@ func (r *ForgeCertificateSigningRequestInstallationResource) Create(ctx context.
 		AddIntermediates: plan.AddIntermediates.ValueBool(),
 	}
 
-	// Call InstallCertificate on the client.
-	err := r.client.InstallCertificate(ctx, int(plan.ServerID.ValueInt64()), int(plan.SiteID.ValueInt64()), int(plan.CertificateSigningRequestID.ValueInt64()), payload)
+	// Call InstallCertificate on the client using domainID.
+	err := r.client.InstallCertificate(ctx, int(plan.ServerID.ValueInt64()), int(plan.SiteID.ValueInt64()), int(plan.DomainID.ValueInt64()), payload)
 	if err != nil {
 		resp.Diagnostics.AddError("Error installing certificate signing request", err.Error())
 		return

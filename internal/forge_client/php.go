@@ -17,14 +17,12 @@ type PHPVersion struct {
 }
 
 func (c *Client) ListPHPVersions(ctx context.Context, serverID int) ([]PHPVersion, error) {
-	// Fetch PHP versions from API
-	path := fmt.Sprintf("/servers/%d/php", serverID)
-	var versions []PHPVersion
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &versions); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/php/versions", serverID))
+	items, err := c.GetJsonApiList(ctx, path)
+	if err != nil {
 		return nil, err
 	}
-
-	return versions, nil
+	return unmarshalList(items, func(v *PHPVersion, id int64) { v.ID = int(id) })
 }
 
 type phpVersionRequest struct {
@@ -32,24 +30,24 @@ type phpVersionRequest struct {
 }
 
 func (c *Client) InstallPHPVersion(ctx context.Context, serverID int, version string) error {
-	path := fmt.Sprintf("/servers/%d/php", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/php/versions", serverID))
 	req := phpVersionRequest{Version: version}
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) UpgradePHPPatchVersion(ctx context.Context, serverID int, version string) error {
-	path := fmt.Sprintf("/servers/%d/php/update", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/php/update", serverID))
 	req := phpVersionRequest{Version: version}
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) EnableOPCache(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/php/opcache", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/php/opcache", serverID))
 	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
 }
 
 func (c *Client) DisableOPCache(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/php/opcache", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/php/opcache", serverID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 

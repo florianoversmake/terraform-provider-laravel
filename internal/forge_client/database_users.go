@@ -20,39 +20,35 @@ type CreateDatabaseUserRequest struct {
 	Databases []int64 `json:"databases"`
 }
 
-type databaseUserResponse struct {
-	User DatabaseUser `json:"user"`
-}
-
-type databaseUsersResponse struct {
-	Users []DatabaseUser `json:"users"`
-}
-
 func (c *Client) CreateDatabaseUser(ctx context.Context, serverID int, req CreateDatabaseUserRequest) (*DatabaseUser, error) {
-	path := fmt.Sprintf("/servers/%d/database-users", serverID)
-	var res databaseUserResponse
-	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/database/users", serverID))
+	var user DatabaseUser
+	id, err := c.PostJsonApi(ctx, path, req, &user)
+	if err != nil {
 		return nil, err
 	}
-	return &res.User, nil
+	user.ID = int64(id)
+	return &user, nil
 }
 
 func (c *Client) ListDatabaseUsers(ctx context.Context, serverID int) ([]DatabaseUser, error) {
-	path := fmt.Sprintf("/servers/%d/database-users", serverID)
-	var res databaseUsersResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/database/users", serverID))
+	items, err := c.GetJsonApiList(ctx, path)
+	if err != nil {
 		return nil, err
 	}
-	return res.Users, nil
+	return unmarshalList(items, func(u *DatabaseUser, id int64) { u.ID = id })
 }
 
 func (c *Client) GetDatabaseUser(ctx context.Context, serverID, userID int) (*DatabaseUser, error) {
-	path := fmt.Sprintf("/servers/%d/database-users/%d", serverID, userID)
-	var res databaseUserResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/database/users/%d", serverID, userID))
+	var user DatabaseUser
+	id, err := c.GetJsonApi(ctx, path, &user)
+	if err != nil {
 		return nil, err
 	}
-	return &res.User, nil
+	user.ID = int64(id)
+	return &user, nil
 }
 
 type UpdateDatabaseUserRequest struct {
@@ -60,15 +56,17 @@ type UpdateDatabaseUserRequest struct {
 }
 
 func (c *Client) UpdateDatabaseUser(ctx context.Context, serverID, userID int, req UpdateDatabaseUserRequest) (*DatabaseUser, error) {
-	path := fmt.Sprintf("/servers/%d/database-users/%d", serverID, userID)
-	var res databaseUserResponse
-	if err := c.doRequest(ctx, http.MethodPut, path, req, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/database/users/%d", serverID, userID))
+	var user DatabaseUser
+	id, err := c.PutJsonApi(ctx, path, req, &user)
+	if err != nil {
 		return nil, err
 	}
-	return &res.User, nil
+	user.ID = int64(id)
+	return &user, nil
 }
 
 func (c *Client) DeleteDatabaseUser(ctx context.Context, serverID, userID int) error {
-	path := fmt.Sprintf("/servers/%d/database-users/%d", serverID, userID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/database/users/%d", serverID, userID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }

@@ -2,23 +2,21 @@ package forge_client
 
 import (
 	"context"
-	"net/http"
 )
 
 type Credential struct {
-	ID   int64  `json:"id"`
-	Type string `json:"type"`
-	Name string `json:"name"`
-}
-
-type credentialsResponse struct {
-	Credentials []Credential `json:"credentials"`
+	ID        int64   `json:"id"`
+	Name      string  `json:"name"`
+	Provider  string  `json:"provider"`
+	InUse     bool    `json:"in_use"`
+	CreatedAt *string `json:"created_at"`
+	UpdatedAt *string `json:"updated_at"`
 }
 
 func (c *Client) ListCredentials(ctx context.Context) ([]Credential, error) {
-	var res credentialsResponse
-	if err := c.doRequest(ctx, http.MethodGet, "/credentials", nil, &res); err != nil {
+	items, err := c.GetJsonApiList(ctx, c.orgPath("/server-credentials"))
+	if err != nil {
 		return nil, err
 	}
-	return res.Credentials, nil
+	return unmarshalList(items, func(cr *Credential, id int64) { cr.ID = id })
 }

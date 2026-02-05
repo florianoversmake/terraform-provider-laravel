@@ -17,10 +17,6 @@ type Monitor struct {
 	StateChangedAt string `json:"state_changed_at"`
 }
 
-type monitorsResponse struct {
-	Monitors []Monitor `json:"monitors"`
-}
-
 type CreateMonitorRequest struct {
 	Type      string `json:"type"`
 	Operator  string `json:"operator"`
@@ -30,37 +26,37 @@ type CreateMonitorRequest struct {
 }
 
 func (c *Client) ListMonitors(ctx context.Context, serverID int) ([]Monitor, error) {
-	path := fmt.Sprintf("/servers/%d/monitors", serverID)
-	var res monitorsResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/monitors", serverID))
+	items, err := c.GetJsonApiList(ctx, path)
+	if err != nil {
 		return nil, err
 	}
-	return res.Monitors, nil
+	return unmarshalList(items, func(m *Monitor, id int64) { m.ID = id })
 }
 
 func (c *Client) CreateMonitor(ctx context.Context, serverID int, req CreateMonitorRequest) (*Monitor, error) {
-	path := fmt.Sprintf("/servers/%d/monitors", serverID)
-	var res struct {
-		Monitor Monitor `json:"monitor"`
-	}
-	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/monitors", serverID))
+	var monitor Monitor
+	id, err := c.PostJsonApi(ctx, path, req, &monitor)
+	if err != nil {
 		return nil, err
 	}
-	return &res.Monitor, nil
+	monitor.ID = int64(id)
+	return &monitor, nil
 }
 
 func (c *Client) GetMonitor(ctx context.Context, serverID, monitorID int) (*Monitor, error) {
-	path := fmt.Sprintf("/servers/%d/monitors/%d", serverID, monitorID)
-	var res struct {
-		Monitor Monitor `json:"monitor"`
-	}
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/monitors/%d", serverID, monitorID))
+	var monitor Monitor
+	id, err := c.GetJsonApi(ctx, path, &monitor)
+	if err != nil {
 		return nil, err
 	}
-	return &res.Monitor, nil
+	monitor.ID = int64(id)
+	return &monitor, nil
 }
 
 func (c *Client) DeleteMonitor(ctx context.Context, serverID, monitorID int) error {
-	path := fmt.Sprintf("/servers/%d/monitors/%d", serverID, monitorID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/monitors/%d", serverID, monitorID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }

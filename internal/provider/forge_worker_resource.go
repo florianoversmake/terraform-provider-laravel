@@ -240,31 +240,23 @@ func (r *ForgeWorkerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	createReq := forge_client.CreateWorkerRequest{
-		Connection: plan.WorkerConnection.ValueString(),
-		TimeOut:    int(plan.Timeout.ValueInt64()),
-		Sleep:      int(plan.Sleep.ValueInt64()),
-		Delay:      int(plan.Delay.ValueInt64()),
-		Processes:  int(plan.Processes.ValueInt64()),
-		Daemon:     plan.Daemon.ValueBool(),
-		Force:      plan.Force.ValueBool(),
-		PHPVersion: plan.PHPVersion.ValueString(),
-		Memory:     int(plan.Memory.ValueInt64()),
-		Directory:  plan.Directory.ValueString(),
+	// Build the artisan queue:work command from individual parameters.
+	cmd := buildQueueWorkerCommand(plan)
+
+	var dir *string
+	if !plan.Directory.IsNull() && plan.Directory.ValueString() != "" {
+		d := plan.Directory.ValueString()
+		dir = &d
 	}
 
-	// Optional fields.
-	if !plan.Tries.IsNull() && !plan.StopWaitSecs.IsUnknown() {
-		t := int(plan.Tries.ValueInt64())
-		createReq.Tries = &t
-	}
-	if !plan.StopWaitSecs.IsNull() && !plan.StopWaitSecs.IsUnknown() {
-		s := int(plan.StopWaitSecs.ValueInt64())
-		createReq.StopWaitSecs = &s
-	}
-	if !plan.Queue.IsNull() && plan.Queue.ValueString() != "" {
-		q := plan.Queue.ValueString()
-		createReq.Queue = &q
+	stopWait := int(plan.StopWaitSecs.ValueInt64())
+	createReq := forge_client.CreateWorkerRequest{
+		Name:         fmt.Sprintf("queue-worker-%s", plan.WorkerConnection.ValueString()),
+		Command:      cmd,
+		User:         "forge",
+		Directory:    dir,
+		Processes:    int(plan.Processes.ValueInt64()),
+		StopWaitSecs: &stopWait,
 	}
 
 	worker, err := r.client.CreateWorker(ctx, int(plan.ServerID.ValueInt64()), int(plan.SiteID.ValueInt64()), createReq)
@@ -273,48 +265,14 @@ func (r *ForgeWorkerResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	// Parse memory from worker.Command.
-	mem, err := parseMemoryFromCommand(worker.Command)
-	if err != nil {
-		// Fallback: use the provided memory if parsing fails.
-		mem = int(plan.Memory.ValueInt64())
-	}
-
 	plan.ID = types.Int64Value(worker.ID)
-	plan.WorkerConnection = types.StringValue(worker.Connection)
-	plan.Timeout = types.Int64Value(int64(worker.Timeout))
-	plan.Sleep = types.Int64Value(int64(worker.Sleep))
-	if worker.Tries != nil {
-		plan.Tries = types.Int64Value(int64(*worker.Tries))
-	} else {
-		plan.Tries = types.Int64Value(0)
-	}
 	plan.Processes = types.Int64Value(int64(worker.Processes))
-	if worker.StopWaitSecs != nil {
-		plan.StopWaitSecs = types.Int64Value(int64(*worker.StopWaitSecs))
-	} else {
-		plan.StopWaitSecs = types.Int64Null()
-	}
-	plan.Daemon = types.BoolValue(worker.Daemon)
-	plan.Force = types.BoolValue(worker.Force)
-	plan.Delay = types.Int64Value(int64(worker.Delay))
-
-	phpVersion, err := r.client.GetPHPVersionFromDisplayableVersion(ctx, int(plan.ServerID.ValueInt64()), worker.DisplayablePHPVersion)
-	if err != nil {
-		resp.Diagnostics.AddError("Error getting PHP version", err.Error())
-		return
-	}
-
-	plan.PHPVersion = types.StringValue(phpVersion.Version)
-	if worker.Queue != nil {
-		plan.Queue = types.StringValue(*worker.Queue)
-	} else {
-		plan.Queue = types.StringValue("")
-	}
-	plan.Memory = types.Int64Value(int64(mem))
 	plan.Command = types.StringValue(worker.Command)
 	plan.Status = types.StringValue(worker.Status)
 	plan.CreatedAt = types.StringValue(worker.CreatedAt)
+	if worker.Directory != nil {
+		plan.Directory = types.StringValue(*worker.Directory)
+	}
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -339,45 +297,22 @@ func (r *ForgeWorkerResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
-	state.WorkerConnection = types.StringValue(worker.Connection)
-	state.Timeout = types.Int64Value(int64(worker.Timeout))
-	state.Sleep = types.Int64Value(int64(worker.Sleep))
-	if worker.Tries != nil {
-		state.Tries = types.Int64Value(int64(*worker.Tries))
-	} else {
-		state.Tries = types.Int64Value(0)
-	}
+	// The new API returns a simplified background process model.
+	// We update computed fields from the API response and preserve
+	// the config fields from state (they all have RequiresReplace).
 	state.Processes = types.Int64Value(int64(worker.Processes))
-	if worker.StopWaitSecs != nil {
-		state.StopWaitSecs = types.Int64Value(int64(*worker.StopWaitSecs))
-	} else {
-		state.StopWaitSecs = types.Int64Value(0)
+	state.Command = types.StringValue(worker.Command)
+	state.Status = types.StringValue(worker.Status)
+	state.CreatedAt = types.StringValue(worker.CreatedAt)
+	if worker.Directory != nil {
+		state.Directory = types.StringValue(*worker.Directory)
 	}
-	state.Daemon = types.BoolValue(worker.Daemon)
-	state.Force = types.BoolValue(worker.Force)
-	state.Delay = types.Int64Value(int64(worker.Delay))
-
-	phpVersion, err := r.client.GetPHPVersionFromDisplayableVersion(ctx, int(state.ServerID.ValueInt64()), worker.DisplayablePHPVersion)
-	if err != nil {
-		resp.Diagnostics.AddError("Error getting PHP version", err.Error())
-		return
-	}
-
-	state.PHPVersion = types.StringValue(phpVersion.Version)
-	if worker.Queue != nil {
-		state.Queue = types.StringValue(*worker.Queue)
-	} else {
-		state.Queue = types.StringValue("")
-	}
-	// Parse memory from the command.
+	// Parse memory from the command if present.
 	mem, err := parseMemoryFromCommand(worker.Command)
 	if err != nil {
 		mem = int(state.Memory.ValueInt64())
 	}
 	state.Memory = types.Int64Value(int64(mem))
-	state.Command = types.StringValue(worker.Command)
-	state.Status = types.StringValue(worker.Status)
-	state.CreatedAt = types.StringValue(worker.CreatedAt)
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -443,47 +378,72 @@ func (r *ForgeWorkerResource) ImportState(ctx context.Context, req resource.Impo
 	stateModel.ID = types.Int64Value(worker.ID)
 	stateModel.ServerID = types.Int64Value(serverID)
 	stateModel.SiteID = types.Int64Value(siteID)
-	stateModel.WorkerConnection = types.StringValue(worker.Connection)
-	stateModel.Timeout = types.Int64Value(int64(worker.Timeout))
-	stateModel.Delay = types.Int64Value(int64(worker.Delay))
-	stateModel.Sleep = types.Int64Value(int64(worker.Sleep))
-	if worker.Tries != nil {
-		stateModel.Tries = types.Int64Value(int64(*worker.Tries))
-	} else {
-		stateModel.Tries = types.Int64Value(0)
-	}
 	stateModel.Processes = types.Int64Value(int64(worker.Processes))
-	if worker.StopWaitSecs != nil {
-		stateModel.StopWaitSecs = types.Int64Value(int64(*worker.StopWaitSecs))
-	} else {
-		stateModel.StopWaitSecs = types.Int64Value(0)
-	}
-	stateModel.Daemon = types.BoolValue(worker.Daemon)
-	stateModel.Force = types.BoolValue(worker.Force)
-
-	phpVersion, err := r.client.GetPHPVersionFromDisplayableVersion(ctx, int(serverID), worker.DisplayablePHPVersion)
-	if err != nil {
-		resp.Diagnostics.AddError("Error getting PHP version", err.Error())
-		return
-	}
-
-	stateModel.PHPVersion = types.StringValue(phpVersion.Version)
-	if worker.Queue != nil {
-		stateModel.Queue = types.StringValue(*worker.Queue)
-	} else {
-		stateModel.Queue = types.StringValue("")
-	}
-	mem, err := parseMemoryFromCommand(worker.Command)
-	if err != nil {
-		mem = 0
-	}
-	stateModel.Memory = types.Int64Value(int64(mem))
 	stateModel.Command = types.StringValue(worker.Command)
 	stateModel.Status = types.StringValue(worker.Status)
 	stateModel.CreatedAt = types.StringValue(worker.CreatedAt)
+	if worker.Directory != nil {
+		stateModel.Directory = types.StringValue(*worker.Directory)
+	} else {
+		stateModel.Directory = types.StringValue("")
+	}
+
+	// Set defaults for fields that the new API no longer returns.
+	// These are preserved for backward compatibility with existing configs.
+	stateModel.WorkerConnection = types.StringValue("")
+	stateModel.Timeout = types.Int64Value(60)
+	stateModel.Delay = types.Int64Value(0)
+	stateModel.Sleep = types.Int64Value(3)
+	stateModel.Tries = types.Int64Value(0)
+	stateModel.StopWaitSecs = types.Int64Value(10)
+	stateModel.Daemon = types.BoolValue(true)
+	stateModel.Force = types.BoolValue(false)
+	stateModel.PHPVersion = types.StringValue("php")
+	stateModel.Queue = types.StringValue("")
+	mem, err := parseMemoryFromCommand(worker.Command)
+	if err != nil {
+		mem = 128
+	}
+	stateModel.Memory = types.Int64Value(int64(mem))
 
 	diags := resp.State.Set(ctx, &stateModel)
 	resp.Diagnostics.Append(diags...)
+}
+
+// buildQueueWorkerCommand constructs a php artisan queue:work command from resource model fields.
+func buildQueueWorkerCommand(plan ForgeWorkerResourceModel) string {
+	phpVersion := plan.PHPVersion.ValueString()
+	if phpVersion == "" {
+		phpVersion = "php"
+	}
+	connection := plan.WorkerConnection.ValueString()
+	cmd := fmt.Sprintf("%s artisan queue:work %s", phpVersion, connection)
+
+	if !plan.Queue.IsNull() && plan.Queue.ValueString() != "" {
+		cmd += fmt.Sprintf(" --queue=%s", plan.Queue.ValueString())
+	}
+	if !plan.Delay.IsNull() && plan.Delay.ValueInt64() > 0 {
+		cmd += fmt.Sprintf(" --delay=%d", plan.Delay.ValueInt64())
+	}
+	if !plan.Memory.IsNull() {
+		cmd += fmt.Sprintf(" --memory=%d", plan.Memory.ValueInt64())
+	}
+	if !plan.Sleep.IsNull() {
+		cmd += fmt.Sprintf(" --sleep=%d", plan.Sleep.ValueInt64())
+	}
+	if !plan.Timeout.IsNull() {
+		cmd += fmt.Sprintf(" --timeout=%d", plan.Timeout.ValueInt64())
+	}
+	if !plan.Tries.IsNull() && plan.Tries.ValueInt64() > 0 {
+		cmd += fmt.Sprintf(" --tries=%d", plan.Tries.ValueInt64())
+	}
+	if !plan.Force.IsNull() && plan.Force.ValueBool() {
+		cmd += " --force"
+	}
+	if !plan.Daemon.IsNull() && plan.Daemon.ValueBool() {
+		cmd += " --daemon"
+	}
+	return cmd
 }
 
 // parseMemoryFromCommand parses a memory value from the worker command string.

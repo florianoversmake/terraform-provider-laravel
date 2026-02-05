@@ -42,9 +42,9 @@ func (c *Client) ListRegions(ctx context.Context) (map[string][]Region, error) {
 		return regionsCache.data, nil
 	}
 
-	// Fetch regions from API
+	// Fetch regions from API using org-scoped path
 	var res RegionsResponse
-	if err := c.doRequest(ctx, http.MethodGet, "/regions", nil, &res); err != nil {
+	if err := c.doRequest(ctx, http.MethodGet, c.orgPath("/providers"), nil, &res); err != nil {
 		return nil, err
 	}
 
@@ -56,27 +56,6 @@ func (c *Client) ListRegions(ctx context.Context) (map[string][]Region, error) {
 
 	return res.Regions, nil
 }
-
-// {
-// "regions": {
-// 	"ocean2": [
-// 	{
-// 		"id": "ams2",
-// 		"name": "Amsterdam 2",
-// 		"sizes": [
-// 		{
-// 			"id": "01",
-// 			"size": "s-1vcpu-1gb",
-// 			"name": "1GB RAM - 1 CPU Core - 25GB SSD"
-// 		}
-// 		]
-// 	}
-// 	],
-// 	"linode": [],
-// 	"vultr": [],
-// 	"aws": []
-// }
-// }
 
 func (c *Client) GetRegionIDByName(ctx context.Context, providerName string, regionName string) (string, error) {
 	regions, err := c.ListRegions(ctx)

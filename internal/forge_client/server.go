@@ -42,38 +42,32 @@ type Tag struct {
 	CreatedAt string `json:"created_at"`
 }
 
-type serversResponse struct {
-	Servers []Server `json:"servers"`
-}
-
-type serverResponse struct {
-	Server Server `json:"server"`
-}
-
 func (c *Client) ListServers(ctx context.Context) ([]Server, error) {
-	var resp serversResponse
-	if err := c.doRequest(ctx, http.MethodGet, "/servers", nil, &resp); err != nil {
+	items, err := c.GetJsonApiList(ctx, c.orgPath("/servers"))
+	if err != nil {
 		return nil, err
 	}
-	return resp.Servers, nil
+	return unmarshalList(items, func(s *Server, id int64) { s.ID = id })
 }
 
 func (c *Client) GetServer(ctx context.Context, serverID int) (*Server, error) {
-	path := fmt.Sprintf("/servers/%d", serverID)
-	var resp serverResponse
-	if err := c.Get(ctx, path, &resp); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d", serverID))
+	var server Server
+	_, err := c.GetJsonApi(ctx, path, &server)
+	if err != nil {
 		return nil, err
 	}
-	return &resp.Server, nil
+	return &server, nil
 }
 
 func (c *Client) GetServerWithoutCache(ctx context.Context, serverID int) (*Server, error) {
-	path := fmt.Sprintf("/servers/%d", serverID)
-	var resp serverResponse
-	if err := c.GetWithoutCache(ctx, path, &resp); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d", serverID))
+	var server Server
+	_, err := c.GetJsonApiWithoutCache(ctx, path, &server)
+	if err != nil {
 		return nil, err
 	}
-	return &resp.Server, nil
+	return &server, nil
 }
 
 // Parameters
@@ -138,9 +132,12 @@ type CreateServerResponse struct {
 	ProvisionCommand    *string `json:"provision_command"`
 }
 
+// CreateServer uses doRequest directly because the POST /servers endpoint
+// returns application/json (not JSON:API format).
 func (c *Client) CreateServer(ctx context.Context, req CreateServerRequest) (*CreateServerResponse, error) {
+	path := c.orgPath("/servers")
 	var resp CreateServerResponse
-	if err := c.doRequest(ctx, http.MethodPost, "/servers", req, &resp); err != nil {
+	if err := c.doRequest(ctx, http.MethodPost, path, req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -175,26 +172,33 @@ type UpdateServerRequest struct {
 }
 
 func (c *Client) UpdateServer(ctx context.Context, serverID int, req UpdateServerRequest) (*Server, error) {
-	path := fmt.Sprintf("/servers/%d", serverID)
-	var resp serverResponse
-	if err := c.doRequest(ctx, http.MethodPut, path, req, &resp); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d", serverID))
+	var server Server
+	_, err := c.PutJsonApi(ctx, path, req, &server)
+	if err != nil {
 		return nil, err
 	}
-	return &resp.Server, nil
+	return &server, nil
 }
 
 func (c *Client) DeleteServer(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d", serverID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
+// serverActionRequest is the payload for server-level actions (reboot, power-cycle).
+type serverActionRequest struct {
+	Action string `json:"action"`
+}
+
 func (c *Client) RebootServer(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/reboot", serverID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/actions", serverID))
+	req := serverActionRequest{Action: "reboot"}
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) RevokeServer(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/revoke", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/revoke", serverID))
 	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
 }
 
@@ -203,7 +207,7 @@ type ReconnectServerResponse struct {
 }
 
 func (c *Client) ReconnectServer(ctx context.Context, serverID int) (*ReconnectServerResponse, error) {
-	path := fmt.Sprintf("/servers/%d/reconnect", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/reconnect", serverID))
 	var resp ReconnectServerResponse
 	if err := c.doRequest(ctx, http.MethodPost, path, nil, &resp); err != nil {
 		return nil, err
@@ -212,50 +216,55 @@ func (c *Client) ReconnectServer(ctx context.Context, serverID int) (*ReconnectS
 }
 
 func (c *Client) ReactivateServer(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/reactivate", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/reactivate", serverID))
 	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
 }
 
-type startServiceRequest struct {
-	Service string `json:"service"`
+// serviceActionRequest is the payload for service-level actions (reboot, stop, start).
+type serviceActionRequest struct {
+	Action string `json:"action"`
 }
 
 func (c *Client) StartService(ctx context.Context, serverID int, service string) error {
-	path := fmt.Sprintf("/servers/%d/services/start", serverID)
-	req := startServiceRequest{Service: service}
+	path := c.orgPath(fmt.Sprintf("/servers/%d/services/%s/actions", serverID, service))
+	req := serviceActionRequest{Action: "start"}
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) StopService(ctx context.Context, serverID int, service string) error {
-	path := fmt.Sprintf("/servers/%d/services/stop", serverID)
-	req := startServiceRequest{Service: service}
+	path := c.orgPath(fmt.Sprintf("/servers/%d/services/%s/actions", serverID, service))
+	req := serviceActionRequest{Action: "stop"}
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) RestartService(ctx context.Context, serverID int, service string) error {
-	path := fmt.Sprintf("/servers/%d/services/restart", serverID)
-	req := startServiceRequest{Service: service}
+	path := c.orgPath(fmt.Sprintf("/servers/%d/services/%s/actions", serverID, service))
+	req := serviceActionRequest{Action: "reboot"}
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) RebootMySQL(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/mysql/reboot", serverID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/services/mysql/actions", serverID))
+	req := serviceActionRequest{Action: "reboot"}
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) StopMySQL(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/mysql/stop", serverID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/services/mysql/actions", serverID))
+	req := serviceActionRequest{Action: "stop"}
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) RebootNginx(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/nginx/reboot", serverID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/services/nginx/actions", serverID))
+	req := serviceActionRequest{Action: "reboot"}
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) StopNginx(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/nginx/stop", serverID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/services/nginx/actions", serverID))
+	req := serviceActionRequest{Action: "stop"}
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 type testNginxResponse struct {
@@ -263,7 +272,7 @@ type testNginxResponse struct {
 }
 
 func (c *Client) TestNginx(ctx context.Context, serverID int) (*testNginxResponse, error) {
-	path := fmt.Sprintf("/servers/%d/nginx/test", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/nginx/test", serverID))
 	var resp testNginxResponse
 	if err := c.doRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
 		return nil, err
@@ -272,22 +281,20 @@ func (c *Client) TestNginx(ctx context.Context, serverID int) (*testNginxRespons
 }
 
 func (c *Client) RebootPostgres(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/postgres/reboot", serverID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/services/postgres/actions", serverID))
+	req := serviceActionRequest{Action: "reboot"}
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) StopPostgres(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/postgres/stop", serverID)
-	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
-}
-
-type rebootPHPRequest struct {
-	Version string `json:"version"`
+	path := c.orgPath(fmt.Sprintf("/servers/%d/services/postgres/actions", serverID))
+	req := serviceActionRequest{Action: "stop"}
+	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) RebootPHP(ctx context.Context, serverID int, version string) error {
-	path := fmt.Sprintf("/servers/%d/php/reboot", serverID)
-	req := rebootPHPRequest{Version: version}
+	path := c.orgPath(fmt.Sprintf("/servers/%d/services/php/actions", serverID))
+	req := serviceActionRequest{Action: "reboot"}
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
@@ -297,13 +304,13 @@ type installBlackfireRequest struct {
 }
 
 func (c *Client) InstallBlackfire(ctx context.Context, serverID int, serverToken string) error {
-	path := fmt.Sprintf("/servers/%d/blackfire/install", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/blackfire/install", serverID))
 	req := installBlackfireRequest{ServerID: fmt.Sprint(serverID), ServerToken: serverToken}
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) RemoveBlackfire(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/blackfire/remove", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/blackfire/remove", serverID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -312,13 +319,13 @@ type installPapertrailRequest struct {
 }
 
 func (c *Client) InstallPapertrail(ctx context.Context, serverID int, host string) error {
-	path := fmt.Sprintf("/servers/%d/papertrail/install", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/papertrail/install", serverID))
 	req := installPapertrailRequest{Host: host}
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) RemovePapertrail(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/papertrail/remove", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/papertrail/remove", serverID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 

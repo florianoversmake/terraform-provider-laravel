@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const DefaultBaseURL = "https://forge.laravel.com/api/v1"
+const DefaultBaseURL = "https://forge.laravel.com/api"
 
 // ResponseFormat represents the expected format of an API response.
 type ResponseFormat string
@@ -245,6 +245,7 @@ type Client struct {
 	httpClient    *http.Client
 	baseURL       string
 	ForgeAPIToken string
+	Organization  string // Organization slug for the new API (required for org-scoped endpoints)
 
 	// Configurable retry settings
 	MaxRetries int           // Maximum number of retries after receiving a 429
@@ -342,6 +343,12 @@ func (c *Client) startCleanupRoutine() {
 // WithBaseURL sets a custom base URL for the API.
 func (c *Client) WithBaseURL(baseURL string) *Client {
 	c.baseURL = strings.TrimSuffix(baseURL, "/")
+	return c
+}
+
+// WithOrganization sets the organization slug for org-scoped API endpoints.
+func (c *Client) WithOrganization(org string) *Client {
+	c.Organization = org
 	return c
 }
 

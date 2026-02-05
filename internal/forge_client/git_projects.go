@@ -14,34 +14,32 @@ type GitProjectRequest struct {
 }
 
 func (c *Client) InstallGitProject(ctx context.Context, serverID, siteID int, req GitProjectRequest) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/git", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/git", serverID, siteID))
 	return c.doRequest(ctx, http.MethodPost, path, req, nil)
 }
 
 func (c *Client) UpdateGitProject(ctx context.Context, serverID, siteID int, req GitProjectRequest) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/git", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/git", serverID, siteID))
 	return c.doRequest(ctx, http.MethodPut, path, req, nil)
 }
 
 func (c *Client) RemoveGitProject(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/git", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/git", serverID, siteID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
-type DeployKeyResponse struct {
-	Key string `json:"key"`
-}
-
 func (c *Client) CreateDeployKey(ctx context.Context, serverID, siteID int) (string, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deploy-key", serverID, siteID)
-	var res DeployKeyResponse
-	if err := c.doRequest(ctx, http.MethodPost, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deploy-key", serverID, siteID))
+	var res struct {
+		Key string `json:"key"`
+	}
+	if _, err := c.PostJsonApi(ctx, path, nil, &res); err != nil {
 		return "", err
 	}
 	return res.Key, nil
 }
 
 func (c *Client) DeleteDeployKey(ctx context.Context, serverID, siteID int) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/deploy-key", serverID, siteID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deploy-key", serverID, siteID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
