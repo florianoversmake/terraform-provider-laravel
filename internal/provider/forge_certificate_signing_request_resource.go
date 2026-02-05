@@ -2,8 +2,6 @@ package provider
 
 import (
 	"context"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"strconv"
 
@@ -309,37 +307,4 @@ func (r *ForgeCertificateSigningRequestResource) ImportState(ctx context.Context
 
 	diags := resp.State.Set(ctx, stateModel)
 	resp.Diagnostics.Append(diags...)
-}
-
-func extractCSRInfo(csrPEM string) (country, state, city, organization, department string, err error) {
-	block, _ := pem.Decode([]byte(csrPEM))
-	if block == nil || block.Type != "CERTIFICATE REQUEST" {
-		return "", "", "", "", "", fmt.Errorf("failed to decode PEM block containing CSR")
-	}
-
-	csr, err := x509.ParseCertificateRequest(block.Bytes)
-	if err != nil {
-		return "", "", "", "", "", fmt.Errorf("failed to parse certificate request: %w", err)
-	}
-
-	subject := csr.Subject
-
-	// Extract fields from the subject, handling potential empty slices
-	if len(subject.Country) > 0 {
-		country = subject.Country[0]
-	}
-	if len(subject.Province) > 0 {
-		state = subject.Province[0]
-	}
-	if len(subject.Locality) > 0 {
-		city = subject.Locality[0]
-	}
-	if len(subject.Organization) > 0 {
-		organization = subject.Organization[0]
-	}
-	if len(subject.OrganizationalUnit) > 0 {
-		department = subject.OrganizationalUnit[0]
-	}
-
-	return country, state, city, organization, department, nil
 }

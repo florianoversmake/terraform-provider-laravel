@@ -3,12 +3,12 @@
 page_title: "laravel_forge_certificate_signing_request Resource - laravel"
 subcategory: ""
 description: |-
-  Forge certificate signing request resource. This resource allows you to manage SSL certificate signing requests in Forge.
+  Forge certificate signing request resource. This resource allows you to manage SSL certificate signing requests in Forge. In the new API, certificates are managed per domain record.
 ---
 
 # laravel_forge_certificate_signing_request (Resource)
 
-Forge certificate signing request resource. This resource allows you to manage SSL certificate signing requests in Forge.
+Forge certificate signing request resource. This resource allows you to manage SSL certificate signing requests in Forge. In the new API, certificates are managed per domain record.
 
 ## Example Usage
 
@@ -16,6 +16,7 @@ Forge certificate signing request resource. This resource allows you to manage S
 resource "laravel_forge_certificate_signing_request" "example" {
   server_id = 1234
   site_id   = 1234
+  domain_id = 5678
   domain    = "example.com"
 
   country      = "US"
@@ -35,6 +36,7 @@ resource "laravel_forge_certificate_signing_request" "example" {
 - `country` (String) The country of the certificate signing request.
 - `department` (String) The department of the certificate signing request.
 - `domain` (String) The domain of the certificate.
+- `domain_id` (Number) The ID of the domain record the certificate is associated with.
 - `organization` (String) The organization of the certificate signing request.
 - `server_id` (Number) The ID of the server the certificate signing request is associated with.
 - `site_id` (Number) The ID of the site the certificate signing request is associated with.
@@ -42,9 +44,8 @@ resource "laravel_forge_certificate_signing_request" "example" {
 
 ### Read-Only
 
-- `active` (Boolean) Whether the certificate is active.
-- `certificate_signing_request` (String) The certificate signing request.
-- `created_at` (Number)
-- `existing` (Boolean) Whether the certificate already exists.
+- `certificate_signing_request` (String) The certificate signing request content. Note: CSR retrieval may not be available in the new API.
+- `created_at` (String)
 - `id` (Number) The ID of this resource.
 - `request_status` (String) The request status of the certificate.
+- `status` (String) The status of the certificate.

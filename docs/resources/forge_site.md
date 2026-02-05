@@ -28,7 +28,7 @@ resource "laravel_forge_site" "example" {
 
 ### Required
 
-- `directory` (String) The directory where the site files are located.
+- `directory` (String) The web directory where the site files are located.
 - `domain` (String) The domain name for the site.
 - `project_type` (String) The type of project (e.g., 'php', 'html').
 - `server_id` (Number) The ID of the server the site is on.
@@ -36,10 +36,8 @@ resource "laravel_forge_site" "example" {
 ### Optional
 
 - `aliases` (List of String) List of additional domain names (aliases) for the site.
-- `database` (String)
 - `delete_protection` (Boolean) This is a virtual attribute and not in the API. It is used to prevent accidental deletion of the site.
 - `isolated` (Boolean) Whether the site is isolated. If true, a username must be provided.
-- `nginx_template` (String)
 - `php_version` (String)
 - `username` (String) The username for the isolated site. Required if `isolated` is true. Default is 'forge'.
 - `wildcards` (Boolean)

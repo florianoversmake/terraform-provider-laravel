@@ -30,8 +30,8 @@ type LaravelProviderModel struct {
 	EnvoyerBaseURL  types.String `tfsdk:"envoyer_base_url"`
 
 	// Forge Configuration
-	ForgeAPIToken    types.String `tfsdk:"forge_api_token"`
-	ForgeBaseURL     types.String `tfsdk:"forge_base_url"`
+	ForgeAPIToken     types.String `tfsdk:"forge_api_token"`
+	ForgeBaseURL      types.String `tfsdk:"forge_base_url"`
 	ForgeOrganization types.String `tfsdk:"forge_organization"`
 
 	// Advanced Configuration Options
