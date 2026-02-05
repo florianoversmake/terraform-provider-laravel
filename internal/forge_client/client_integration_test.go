@@ -7,20 +7,23 @@ import (
 	"testing"
 )
 
-var (
-	apiKey      = os.Getenv("FORGE_API_KEY")
-	serverIDStr = os.Getenv("FORGE_SERVER_ID")
-	siteIDStr   = os.Getenv("FORGE_SITE_ID")
-)
-
 func getIntegrationClient(t *testing.T) *Client {
+	apiKey := os.Getenv("FORGE_API_KEY")
+	org := os.Getenv("FORGE_ORG")
+
 	if apiKey == "" {
 		t.Skip("FORGE_API_KEY not set")
 	}
-	return NewClient(apiKey)
+
+	if org == "" {
+		t.Skip("FORGE_ORG not set")
+	}
+
+	return NewClient(apiKey).WithOrganization(org)
 }
 
 func getServerID(t *testing.T) int {
+	serverIDStr := os.Getenv("FORGE_SERVER_ID")
 	if serverIDStr == "" {
 		t.Skip("FORGE_SERVER_ID not set")
 	}
@@ -32,6 +35,7 @@ func getServerID(t *testing.T) int {
 }
 
 func getSiteID(t *testing.T) int {
+	siteIDStr := os.Getenv("FORGE_SITE_ID")
 	if siteIDStr == "" {
 		t.Skip("FORGE_SITE_ID not set")
 	}

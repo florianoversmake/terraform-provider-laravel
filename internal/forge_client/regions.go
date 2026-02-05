@@ -44,7 +44,7 @@ func (c *Client) ListRegions(ctx context.Context) (map[string][]Region, error) {
 
 	// Fetch regions from API using org-scoped path
 	var res RegionsResponse
-	if err := c.doRequest(ctx, http.MethodGet, c.orgPath("/providers"), nil, &res); err != nil {
+	if err := c.doRequest(ctx, http.MethodGet, "/providers", nil, &res); err != nil {
 		return nil, err
 	}
 
