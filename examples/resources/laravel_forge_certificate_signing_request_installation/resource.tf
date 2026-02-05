@@ -1,6 +1,7 @@
 resource "laravel_forge_certificate_signing_request" "example" {
   server_id = 1234
   site_id   = 1234
+  domain_id = 5678
   domain    = "example.com"
 
   country      = "US"
@@ -18,9 +19,9 @@ resource "cloudflare_origin_ca_certificate" "example" {
 }
 
 resource "laravel_forge_certificate_signing_request_installation" "example" {
-  certificate_signing_request_id = laravel_forge_certificate_signing_request.example.id
-  server_id                      = 1234
-  site_id                        = 1234
-  certificate                    = cloudflare_origin_ca_certificate.example.certificate
-  add_intermediates              = true
+  domain_id         = 5678
+  server_id         = 1234
+  site_id           = 1234
+  certificate       = cloudflare_origin_ca_certificate.example.certificate
+  add_intermediates = true
 }
