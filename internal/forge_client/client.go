@@ -577,7 +577,7 @@ func (c *Client) doRequestInternal(ctx context.Context, method, path string, in 
 		}
 
 		bodyBytes, err := io.ReadAll(resp.Body)
-		resp.Body.Close() // Close immediately to avoid resource leak
+		_ = resp.Body.Close() // Close immediately to avoid resource leak
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}

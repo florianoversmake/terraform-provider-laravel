@@ -115,8 +115,8 @@ func (c *Client) GetSizeByID(ctx context.Context, providerSlug string, sizeID in
 func (c *Client) GetRegionIDByName(ctx context.Context, providerSlug, regionName string) (string, error) {
 	region, err := c.GetRegionByName(ctx, providerSlug, regionName)
 	if err != nil {
-		// Return empty string for not found (backward compatibility)
-		return "", nil
+		// Return empty string for not found (backward compatibility).
+		return "", nil //nolint:nilerr
 	}
 	return region.Code, nil
 }
@@ -126,8 +126,8 @@ func (c *Client) GetRegionIDByName(ctx context.Context, providerSlug, regionName
 func (c *Client) GetRegionNameByID(ctx context.Context, providerSlug, regionCode string) (string, error) {
 	region, err := c.GetRegionByCode(ctx, providerSlug, regionCode)
 	if err != nil {
-		// Return empty string for not found (backward compatibility)
-		return "", nil
+		// Return empty string for not found (backward compatibility).
+		return "", nil //nolint:nilerr
 	}
 	return region.Name, nil
 }
@@ -137,11 +137,11 @@ func (c *Client) GetRegionNameByID(ctx context.Context, providerSlug, regionCode
 func (c *Client) GetRegionSizeIDByName(ctx context.Context, providerSlug, regionCode, sizeName string) (string, error) {
 	provider, err := c.GetProviderBySlug(ctx, providerSlug)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr
 	}
 	region, err := c.GetRegionByCode(ctx, providerSlug, regionCode)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr
 	}
 	// Get all sizes for provider to get full size info
 	allSizes, err := c.ListProviderSizes(ctx, provider.ID)
@@ -169,15 +169,15 @@ func (c *Client) GetRegionSizeIDByName(ctx context.Context, providerSlug, region
 func (c *Client) GetRegionSizeNameByID(ctx context.Context, providerSlug, regionCode, sizeID string) (string, error) {
 	provider, err := c.GetProviderBySlug(ctx, providerSlug)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr
 	}
 	sizeIDInt, err := strconv.ParseInt(sizeID, 10, 64)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr
 	}
 	size, err := c.GetProviderSize(ctx, provider.ID, sizeIDInt)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr
 	}
 	return size.Name, nil
 }
@@ -186,7 +186,7 @@ func (c *Client) GetRegionSizeNameByID(ctx context.Context, providerSlug, region
 func (c *Client) GetRegionSizeIDBySize(ctx context.Context, providerSlug, regionCode, sizeCode string) (string, error) {
 	provider, err := c.GetProviderBySlug(ctx, providerSlug)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr
 	}
 	sizes, err := c.ListProviderSizes(ctx, provider.ID)
 	if err != nil {
@@ -204,7 +204,7 @@ func (c *Client) GetRegionSizeIDBySize(ctx context.Context, providerSlug, region
 func (c *Client) GetRegionSizeNameBySize(ctx context.Context, providerSlug, regionCode, sizeCode string) (string, error) {
 	size, err := c.GetSizeByCode(ctx, providerSlug, sizeCode)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr
 	}
 	return size.Name, nil
 }
@@ -213,7 +213,7 @@ func (c *Client) GetRegionSizeNameBySize(ctx context.Context, providerSlug, regi
 func (c *Client) GetRegionSizeSizeByName(ctx context.Context, providerSlug, regionCode, sizeName string) (string, error) {
 	provider, err := c.GetProviderBySlug(ctx, providerSlug)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr
 	}
 	sizes, err := c.ListProviderSizes(ctx, provider.ID)
 	if err != nil {
@@ -231,15 +231,15 @@ func (c *Client) GetRegionSizeSizeByName(ctx context.Context, providerSlug, regi
 func (c *Client) GetRegionSizeSizeByID(ctx context.Context, providerSlug, regionCode, sizeID string) (string, error) {
 	provider, err := c.GetProviderBySlug(ctx, providerSlug)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr
 	}
 	sizeIDInt, err := strconv.ParseInt(sizeID, 10, 64)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr
 	}
 	size, err := c.GetProviderSize(ctx, provider.ID, sizeIDInt)
 	if err != nil {
-		return "", nil
+		return "", nil //nolint:nilerr
 	}
 	return size.Code, nil
 }

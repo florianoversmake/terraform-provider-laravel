@@ -128,7 +128,7 @@ type CreateServerRequest struct {
 	Custom  *CustomServerConfig  `json:"custom,omitempty"`
 }
 
-// AWSServerConfig holds AWS-specific server configuration
+// AWSServerConfig holds AWS-specific server configuration.
 type AWSServerConfig struct {
 	RegionID   string `json:"region_id"`
 	SizeID     string `json:"size_id"`
@@ -137,7 +137,7 @@ type AWSServerConfig struct {
 	DiskSize   string `json:"disk_size"`
 }
 
-// Ocean2ServerConfig holds DigitalOcean-specific server configuration
+// Ocean2ServerConfig holds DigitalOcean-specific server configuration.
 type Ocean2ServerConfig struct {
 	RegionID            string `json:"region_id"`
 	SizeID              string `json:"size_id"`
@@ -145,7 +145,7 @@ type Ocean2ServerConfig struct {
 	EnableWeeklyBackups string `json:"enable_weekly_backups,omitempty"`
 }
 
-// HetznerServerConfig holds Hetzner-specific server configuration
+// HetznerServerConfig holds Hetzner-specific server configuration.
 type HetznerServerConfig struct {
 	RegionID           string `json:"region_id"`
 	SizeID             string `json:"size_id"`
@@ -153,26 +153,26 @@ type HetznerServerConfig struct {
 	EnableDailyBackups string `json:"enable_daily_backups,omitempty"`
 }
 
-// VultrServerConfig holds Vultr-specific server configuration
+// VultrServerConfig holds Vultr-specific server configuration.
 type VultrServerConfig struct {
 	RegionID  string `json:"region_id"`
 	SizeID    string `json:"size_id"`
 	NetworkID string `json:"network_id,omitempty"`
 }
 
-// AkamaiServerConfig holds Akamai/Linode-specific server configuration
+// AkamaiServerConfig holds Akamai/Linode-specific server configuration.
 type AkamaiServerConfig struct {
 	RegionID string `json:"region_id"`
 	SizeID   string `json:"size_id"`
 }
 
-// LaravelServerConfig holds Laravel VPS-specific server configuration
+// LaravelServerConfig holds Laravel VPS-specific server configuration.
 type LaravelServerConfig struct {
 	RegionID string `json:"region_id"`
 	SizeID   string `json:"size_id"`
 }
 
-// CustomServerConfig holds custom VPS server configuration
+// CustomServerConfig holds custom VPS server configuration.
 type CustomServerConfig struct {
 	IPAddress        string `json:"ip_address"`
 	PrivateIPAddress string `json:"private_ip_address,omitempty"`

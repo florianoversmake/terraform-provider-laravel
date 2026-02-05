@@ -140,6 +140,28 @@ The region and size lookup methods have been refactored to use efficient targete
 - `GetAllRegionsWithSizes()` - Fetches ALL providers, regions, and sizes (many API calls, cached for 60s)
 - `ListRegions()` - Alias for `GetAllRegionsWithSizes()` for backward compatibility
 
+### Lint Fixes
+
+**golangci-lint v2 Configuration**:
+- Updated `.golangci.yml` to v2 format with `version: "2"`
+- Moved `gofmt` and `goimports` to `formatters` section
+- Removed deprecated linters: `gosimple`, `tenv`
+- Changed `disable-all: true` to `default: none`
+
+**errcheck Fixes**:
+- `internal/forge_client/client.go` - Changed `resp.Body.Close()` to `_ = resp.Body.Close()`
+- `internal/envoyer_client/client.go` - Changed `resp.Body.Close()` to `_ = resp.Body.Close()`
+- `internal/forge_client/jsonapi_test.go` - Changed `fmt.Fprint(w, ...)` to `_, _ = fmt.Fprint(w, ...)`
+
+**godot Fixes** (comments should end in period):
+- `internal/forge_client/server.go` - Fixed struct doc comments for provider configs
+
+**nilerr Fixes** (intentional return nil on error for graceful degradation):
+- `internal/forge_client/regions.go` - Added `//nolint:nilerr` comments to lookup functions that return empty string on error
+
+**unused Fixes**:
+- `internal/provider/forge_site_resource.go` - Removed unused `projectTypeAPIToTerraform` function
+
 ### Notes
 
 - Provider endpoints do not require organization scope and can be called without setting `forge_organization`.

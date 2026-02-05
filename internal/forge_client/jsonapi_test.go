@@ -173,7 +173,7 @@ func TestGetJsonApi(t *testing.T) {
 			t.Errorf("expected Bearer token, got %s", r.Header.Get("Authorization"))
 		}
 		w.Header().Set("Content-Type", "application/vnd.api+json")
-		fmt.Fprint(w, `{
+		_, _ = fmt.Fprint(w, `{
 			"data": {
 				"id": "99",
 				"type": "servers",
@@ -209,7 +209,7 @@ func TestPostJsonApi(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/vnd.api+json")
 		w.WriteHeader(http.StatusCreated)
-		fmt.Fprint(w, `{
+		_, _ = fmt.Fprint(w, `{
 			"data": {
 				"id": "55",
 				"type": "sites",
@@ -241,7 +241,7 @@ func TestPostJsonApi(t *testing.T) {
 func TestGetJsonApiList(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")
-		fmt.Fprint(w, `{
+		_, _ = fmt.Fprint(w, `{
 			"data": [
 				{"id": "1", "type": "jobs", "attributes": {"command": "ls"}},
 				{"id": "2", "type": "jobs", "attributes": {"command": "pwd"}}
@@ -268,7 +268,7 @@ func TestPutJsonApi(t *testing.T) {
 			t.Errorf("expected PUT, got %s", r.Method)
 		}
 		w.Header().Set("Content-Type", "application/vnd.api+json")
-		fmt.Fprint(w, `{
+		_, _ = fmt.Fprint(w, `{
 			"data": {
 				"id": "77",
 				"type": "servers",
@@ -300,7 +300,7 @@ func TestPutJsonApi(t *testing.T) {
 func TestGetJsonApi_ServerError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, `{"message": "internal error"}`)
+		_, _ = fmt.Fprint(w, `{"message": "internal error"}`)
 	}))
 	defer server.Close()
 

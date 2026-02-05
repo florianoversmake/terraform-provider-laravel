@@ -23,8 +23,8 @@ import (
 var _ resource.Resource = &ForgeSiteResource{}
 var _ resource.ResourceWithImportState = &ForgeSiteResource{}
 
-// phpVersionAPIToTerraform converts API php_version format to Terraform format
-// e.g., "PHP 8.3" -> "php83", "PHP 7.4" -> "php74"
+// phpVersionAPIToTerraform converts API php_version format to Terraform format.
+// Example: "PHP 8.3" -> "php83", "PHP 7.4" -> "php74".
 func phpVersionAPIToTerraform(apiVersion string) string {
 	// Remove "PHP " prefix and normalize
 	version := strings.TrimPrefix(apiVersion, "PHP ")
@@ -34,15 +34,8 @@ func phpVersionAPIToTerraform(apiVersion string) string {
 	return "php" + version
 }
 
-// projectTypeAPIToTerraform converts API app_type to Terraform format
-// Valid values: laravel, symfony, statamic, wordpress, phpmyadmin, php, nextjs, nuxtjs, static-html, other, custom
-func projectTypeAPIToTerraform(apiType string) string {
-	// Just lowercase - the API may return capitalized versions
-	return strings.ToLower(apiType)
-}
-
-// extractRelativeDirectory extracts the relative directory from the full web path
-// e.g., "/home/forge/example.com/public" -> "/public"
+// extractRelativeDirectory extracts the relative directory from the full web path.
+// Example: "/home/forge/example.com/public" -> "/public".
 func extractRelativeDirectory(fullPath, domain string) string {
 	// Try to find the domain in the path and extract what comes after
 	if idx := strings.Index(fullPath, domain); idx != -1 {

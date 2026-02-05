@@ -249,7 +249,7 @@ func (r *EnvoyerDeploymentResource) Delete(ctx context.Context, req resource.Del
 }
 
 // ImportState imports an existing deployment into Terraform state.
-// Import ID format: project_id/deployment_id
+// Import ID format: project_id/deployment_id.
 func (r *EnvoyerDeploymentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	idParts := strings.Split(req.ID, "/")
 	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
