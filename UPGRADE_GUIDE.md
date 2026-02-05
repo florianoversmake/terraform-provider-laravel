@@ -14,7 +14,7 @@ Laravel Forge API v1 is deprecated and will be **discontinued on March 31, 2026*
 
 ### Required: Add `forge_organization`
 
-All Forge API operations now require an organization slug. Add this to your provider configuration:
+Most Forge API operations now require an organization slug. Add this to your provider configuration:
 
 ```hcl
 provider "laravel" {
@@ -24,6 +24,8 @@ provider "laravel" {
 ```
 
 You can find your organization slug in the Forge dashboard URL: `https://forge.laravel.com/orgs/{slug}/servers`.
+
+> **Note:** Some endpoints like `/providers` (cloud provider information) do not require organization scope and can be accessed without setting `forge_organization`. However, most resource operations (servers, sites, workers, etc.) require it.
 
 ### Base URL Change
 
@@ -159,3 +161,235 @@ After upgrading, you may need to update your Terraform state for resources that 
 | `/servers/{id}/database-users` | `/orgs/{org}/servers/{id}/database/users` |
 | `/servers/{id}/backup-configs` | `/orgs/{org}/servers/{id}/database/backups` |
 | `/servers/{id}/sites/{id}/certificates` | `/orgs/{org}/servers/{id}/sites/{id}/domains/{id}/certificate` |
+
+## New Data Sources
+
+v0.2.0 introduces several new data sources that can help you query Forge resources:
+
+### `laravel_forge_organizations`
+
+List all organizations the authenticated user has access to:
+
+```hcl
+data "laravel_forge_organizations" "all" {}
+
+# With filter
+data "laravel_forge_organizations" "personal" {
+  filter {
+    name   = "slug"
+    values = ["personal"]
+  }
+}
+```
+
+### `laravel_forge_servers`
+
+List all servers in the organization:
+
+```hcl
+data "laravel_forge_servers" "all" {}
+
+# With filter
+data "laravel_forge_servers" "production" {
+  filter {
+    name   = "provider"
+    values = ["digitalocean"]
+  }
+}
+```
+
+### `laravel_forge_sites`
+
+List all sites on a specific server:
+
+```hcl
+data "laravel_forge_sites" "all" {
+  server_id = 1234
+}
+
+# With filter
+data "laravel_forge_sites" "active" {
+  server_id = 1234
+  filter {
+    name   = "status"
+    values = ["installed"]
+  }
+}
+```
+
+### `laravel_forge_php_versions`
+
+List all PHP versions available on a server:
+
+```hcl
+data "laravel_forge_php_versions" "available" {
+  server_id = 1234
+}
+```
+
+### `laravel_forge_providers`
+
+List all cloud providers supported by Forge:
+
+```hcl
+data "laravel_forge_providers" "all" {}
+
+# With filter
+data "laravel_forge_providers" "aws" {
+  filter {
+    name   = "slug"
+    values = ["aws"]
+  }
+}
+```
+
+### `laravel_forge_regions`
+
+List all regions for a specific cloud provider:
+
+```hcl
+data "laravel_forge_regions" "do_regions" {
+  provider_id = data.laravel_forge_providers.do.providers[0].id
+}
+
+# With filter
+data "laravel_forge_regions" "eu_regions" {
+  provider_id = 1
+  filter {
+    name   = "code"
+    values = ["eu-west-1", "eu-central-1"]
+  }
+}
+```
+
+### `laravel_forge_sizes`
+
+List all server sizes for a specific cloud provider:
+
+```hcl
+data "laravel_forge_sizes" "do_sizes" {
+  provider_id = 1
+}
+
+# With filter
+data "laravel_forge_sizes" "small_instances" {
+  provider_id = 1
+  filter {
+    name   = "category"
+    values = ["general"]
+  }
+}
+```
+
+## Terraform Modules
+
+v0.2.0 includes reusable Terraform modules in `tf-test/modules/`:
+
+### Forge Module
+
+The Forge module creates a complete server setup with optional site and worker:
+
+```hcl
+module "production_server" {
+  source = "./tf-test/modules/forge"
+
+  server_provider = "ocean2"  # DigitalOcean
+  credentials_id  = data.laravel_forge_credentials.all.credentials[0].id
+  server_name     = "production-server"
+  region          = "nyc3"
+  size            = "s-1vcpu-1gb"
+  php_version     = "php83"
+  database_type   = "mysql8"
+
+  create_site       = true
+  site_domain       = "example.com"
+  site_project_type = "php"
+  site_directory    = "/public"
+
+  create_worker     = true
+  worker_connection = "redis"
+  worker_queue      = "default"
+}
+
+output "server_ip" {
+  value = module.production_server.server_ip
+}
+```
+
+### Envoyer Module
+
+The Envoyer module creates a project with servers and deployment hooks:
+
+```hcl
+module "my_project" {
+  source = "./tf-test/modules/envoyer"
+
+  project_name  = "my-laravel-app"
+  repo_provider = "github"
+  repository    = "my-org/my-repo"
+  branch        = "main"
+
+  servers = [
+    {
+      name            = "web-1"
+      connect_as      = "forge"
+      ip_address      = "192.168.1.100"
+      php_version     = "php83"
+      deployment_path = "/home/forge/my-app"
+    }
+  ]
+
+  hooks = [
+    {
+      action_id = 1  # Clone New Release
+      timing    = "after"
+      name      = "Install Dependencies"
+      run_as    = "forge"
+      script    = "cd {{release}} && composer install --no-interaction"
+    }
+  ]
+}
+```
+
+## Import Support
+
+Most resources support importing existing infrastructure into Terraform state.
+
+### Import Formats
+
+| Resource | Import Format |
+|---|---|
+| `laravel_forge_server` | `server_id` |
+| `laravel_forge_site` | `server_id:site_id` |
+| `laravel_forge_worker` | `server_id:site_id:worker_id` |
+| `laravel_forge_scheduled_job` | `server_id:job_id` |
+| `laravel_forge_ssh_key` | `server_id:key_id` |
+| `laravel_forge_certificate` | `server_id:site_id:domain_id` |
+| `laravel_forge_certificate_signing_request` | `server_id:site_id:domain_id` |
+| `laravel_forge_recipe` | `recipe_id` |
+| `laravel_forge_deployment_settings` | `server_id:site_id` |
+| `laravel_envoyer_project` | `project_id` |
+| `laravel_envoyer_server` | `project_id:server_id` |
+| `laravel_envoyer_hook` | `project_id:hook_id` |
+| `laravel_envoyer_environment` | `project_id` |
+| `laravel_envoyer_deployment` | `project_id/deployment_id` |
+
+### Example Import
+
+```bash
+# Import an existing Forge server
+terraform import laravel_forge_server.example 12345
+
+# Import an existing site
+terraform import laravel_forge_site.example "12345:67890"
+
+# Import an existing Envoyer deployment
+terraform import laravel_envoyer_deployment.example "100/200"
+```
+
+### Resources Without Import Support
+
+The following resources are one-time actions and cannot be imported:
+
+- `laravel_forge_recipe_run` - Runs a recipe once, no persistent state
+- `laravel_forge_certificate_signing_request_installation` - Installs a certificate once, no persistent state

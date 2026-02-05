@@ -3,18 +3,21 @@ package forge_client
 import (
 	"context"
 	"fmt"
-	"net/http"
 )
 
 type ServerLog struct {
+	ID      int64  `json:"id"`
 	Path    string `json:"path"`
 	Content string `json:"content"`
 }
 
-func (c *Client) GetServerLog(ctx context.Context, serverID int) (*ServerLog, error) {
-	path := fmt.Sprintf("/servers/%d/logs", serverID)
+// GetServerLog retrieves a specific server log by key.
+// Valid keys include: nginx_access, nginx_error, database, php, etc.
+func (c *Client) GetServerLog(ctx context.Context, serverID int, key string) (*ServerLog, error) {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/logs/%s", serverID, key))
 	var res ServerLog
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	_, err := c.GetJsonApi(ctx, path, &res)
+	if err != nil {
 		return nil, err
 	}
 	return &res, nil

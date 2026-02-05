@@ -23,6 +23,43 @@ import (
 var _ resource.Resource = &ForgeSiteResource{}
 var _ resource.ResourceWithImportState = &ForgeSiteResource{}
 
+// phpVersionAPIToTerraform converts API php_version format to Terraform format
+// e.g., "PHP 8.3" -> "php83", "PHP 7.4" -> "php74"
+func phpVersionAPIToTerraform(apiVersion string) string {
+	// Remove "PHP " prefix and normalize
+	version := strings.TrimPrefix(apiVersion, "PHP ")
+	version = strings.TrimPrefix(version, "php")
+	// Remove dot: "8.3" -> "83"
+	version = strings.ReplaceAll(version, ".", "")
+	return "php" + version
+}
+
+// projectTypeAPIToTerraform converts API app_type to Terraform format
+// Valid values: laravel, symfony, statamic, wordpress, phpmyadmin, php, nextjs, nuxtjs, static-html, other, custom
+func projectTypeAPIToTerraform(apiType string) string {
+	// Just lowercase - the API may return capitalized versions
+	return strings.ToLower(apiType)
+}
+
+// extractRelativeDirectory extracts the relative directory from the full web path
+// e.g., "/home/forge/example.com/public" -> "/public"
+func extractRelativeDirectory(fullPath, domain string) string {
+	// Try to find the domain in the path and extract what comes after
+	if idx := strings.Index(fullPath, domain); idx != -1 {
+		relPath := fullPath[idx+len(domain):]
+		if relPath == "" {
+			return "/"
+		}
+		return relPath
+	}
+	// Fallback: return the last path component
+	parts := strings.Split(fullPath, "/")
+	if len(parts) > 0 {
+		return "/" + parts[len(parts)-1]
+	}
+	return fullPath
+}
+
 // ForgeSiteResource implements a Terraform resource for a Forge site.
 type ForgeSiteResource struct {
 	client *forge_client.Client
@@ -107,6 +144,7 @@ func (r *ForgeSiteResource) Schema(ctx context.Context, req resource.SchemaReque
 			"wildcards": schema.BoolAttribute{
 				Optional: true,
 				Computed: true,
+				Default:  booldefault.StaticBool(false),
 			},
 			"status": schema.StringAttribute{
 				Computed: true,
@@ -168,15 +206,34 @@ func (r *ForgeSiteResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	webDir := plan.Directory.ValueString()
+	domain := plan.Domain.ValueString()
+
+	// Determine domain_mode based on the domain
+	// If the domain ends with .forge.run or contains no dots, use "on-forge"
+	// Otherwise use "custom" for user's own domain
+	domainMode := "custom"
+	siteName := domain
+	if strings.HasSuffix(domain, ".forge.run") {
+		domainMode = "on-forge"
+		// Extract just the subdomain part (remove .forge.run)
+		siteName = strings.TrimSuffix(domain, ".forge.run")
+	} else if !strings.Contains(domain, ".") {
+		// Single word without dots - treat as forge subdomain
+		domainMode = "on-forge"
+		siteName = domain
+	}
 
 	// Build the CreateSiteRequest payload using the new API field names.
 	payload := forge_client.CreateSiteRequest{
-		Name:         plan.Domain.ValueString(),
-		Type:         plan.ProjectType.ValueString(),
-		WebDirectory: &webDir,
-		IsIsolated:   plan.Isolated.ValueBool(),
-		IsolatedUser: plan.Username.ValueString(),
-		PHPVersion:   plan.PHPVersion.ValueString(),
+		DomainMode:              domainMode,
+		Name:                    siteName,
+		Type:                    plan.ProjectType.ValueString(),
+		WebDirectory:            &webDir,
+		IsIsolated:              plan.Isolated.ValueBool(),
+		IsolatedUser:            plan.Username.ValueString(),
+		PHPVersion:              plan.PHPVersion.ValueString(),
+		WWWRedirectType:         "none", // Default: no www redirect
+		AllowWildcardSubdomains: false,  // Default: no wildcard subdomains
 	}
 
 	// Call CreateSite on the client using the provided server_id.
@@ -186,20 +243,27 @@ func (r *ForgeSiteResource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
-	// Update plan state with response values.
+	// Update plan state with response values, converting API formats to Terraform formats.
 	plan.ID = types.Int64Value(site.ID)
 	plan.Domain = types.StringValue(site.Name)
-	plan.ProjectType = types.StringValue(site.AppType)
-	listVal, diags := types.ListValueFrom(ctx, types.StringType, site.Aliases)
-	if diags.HasError() {
-		resp.Diagnostics.Append(diags...)
-		return
+	// Keep plan.ProjectType - the API may return different values (e.g., "php" -> "custom")
+
+	// Handle aliases - ensure we return empty list, not null
+	if site.Aliases == nil {
+		plan.Aliases = types.ListValueMust(types.StringType, []attr.Value{})
+	} else {
+		listVal, diags := types.ListValueFrom(ctx, types.StringType, site.Aliases)
+		if diags.HasError() {
+			resp.Diagnostics.Append(diags...)
+			return
+		}
+		plan.Aliases = listVal
 	}
-	plan.Aliases = listVal
-	plan.Directory = types.StringValue(site.WebDirectory)
+
+	plan.Directory = types.StringValue(extractRelativeDirectory(site.WebDirectory, site.Name))
 	plan.Isolated = types.BoolValue(site.Isolated)
 	plan.Username = types.StringValue(site.User)
-	plan.PHPVersion = types.StringValue(site.PHPVersion)
+	plan.PHPVersion = types.StringValue(phpVersionAPIToTerraform(site.PHPVersion))
 	if site.Wildcards != nil {
 		plan.Wildcards = types.BoolValue(*site.Wildcards)
 	} else {
@@ -232,17 +296,24 @@ func (r *ForgeSiteResource) Read(ctx context.Context, req resource.ReadRequest, 
 	}
 
 	state.Domain = types.StringValue(site.Name)
-	state.ProjectType = types.StringValue(site.AppType)
-	listVal, diags := types.ListValueFrom(ctx, types.StringType, site.Aliases)
-	if diags.HasError() {
-		resp.Diagnostics.Append(diags...)
-		return
+	// Keep state.ProjectType - the API may return different values (e.g., "php" -> "custom")
+
+	// Handle aliases - ensure we return empty list, not null
+	if site.Aliases == nil {
+		state.Aliases = types.ListValueMust(types.StringType, []attr.Value{})
+	} else {
+		listVal, diags := types.ListValueFrom(ctx, types.StringType, site.Aliases)
+		if diags.HasError() {
+			resp.Diagnostics.Append(diags...)
+			return
+		}
+		state.Aliases = listVal
 	}
-	state.Aliases = listVal
-	state.Directory = types.StringValue(site.WebDirectory)
+
+	state.Directory = types.StringValue(extractRelativeDirectory(site.WebDirectory, site.Name))
 	state.Isolated = types.BoolValue(site.Isolated)
 	state.Username = types.StringValue(site.User)
-	state.PHPVersion = types.StringValue(site.PHPVersion)
+	state.PHPVersion = types.StringValue(phpVersionAPIToTerraform(site.PHPVersion))
 	if site.Wildcards != nil {
 		state.Wildcards = types.BoolValue(*site.Wildcards)
 	} else {
@@ -284,15 +355,24 @@ func (r *ForgeSiteResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	// Update state with new values.
+	// Keep plan values for fields that the API transforms differently:
+	// - plan.Directory (user's "/public" vs API's full path)
+	// - plan.PHPVersion (user's "php83" vs API's "PHP 8.3")
+	// - plan.ProjectType (already preserved from plan)
 	plan.Domain = types.StringValue(site.Name)
-	plan.Directory = types.StringValue(site.WebDirectory)
-	plan.PHPVersion = types.StringValue(site.PHPVersion)
-	listVal, diags := types.ListValueFrom(ctx, types.StringType, site.Aliases)
-	if diags.HasError() {
-		resp.Diagnostics.Append(diags...)
-		return
+
+	// Handle aliases - ensure we return empty list, not null
+	if site.Aliases == nil {
+		plan.Aliases = types.ListValueMust(types.StringType, []attr.Value{})
+	} else {
+		listVal, diags := types.ListValueFrom(ctx, types.StringType, site.Aliases)
+		if diags.HasError() {
+			resp.Diagnostics.Append(diags...)
+			return
+		}
+		plan.Aliases = listVal
 	}
-	plan.Aliases = listVal
+
 	if site.Wildcards != nil {
 		plan.Wildcards = types.BoolValue(*site.Wildcards)
 	} else {

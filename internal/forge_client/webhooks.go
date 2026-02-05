@@ -12,47 +12,43 @@ type Webhook struct {
 	CreatedAt string `json:"created_at"`
 }
 
-type webhooksResponse struct {
-	Webhooks []Webhook `json:"webhooks"`
-}
-
-type webhookResponse struct {
-	Webhook Webhook `json:"webhook"`
+type CreateWebhookRequest struct {
+	URL string `json:"url"`
 }
 
 func (c *Client) ListWebhooks(ctx context.Context, serverID, siteID int) ([]Webhook, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/webhooks", serverID, siteID)
-	var res webhooksResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/webhooks", serverID, siteID))
+	items, err := c.GetJsonApiList(ctx, path)
+	if err != nil {
 		return nil, err
 	}
-	return res.Webhooks, nil
+	return unmarshalList(items, func(w *Webhook, id int64) { w.ID = id })
 }
 
 func (c *Client) GetWebhook(ctx context.Context, serverID, siteID, webhookID int) (*Webhook, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/webhooks/%d", serverID, siteID, webhookID)
-	var res webhookResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/webhooks/%d", serverID, siteID, webhookID))
+	var webhook Webhook
+	id, err := c.GetJsonApi(ctx, path, &webhook)
+	if err != nil {
 		return nil, err
 	}
-	return &res.Webhook, nil
+	webhook.ID = int64(id)
+	return &webhook, nil
 }
 
-func (c *Client) CreateWebhook(ctx context.Context, serverID, siteID int, urlStr string) (string, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/webhooks", serverID, siteID)
-	req := map[string]string{"url": urlStr}
-	var res map[string]string
-	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
-		return "", err
+func (c *Client) CreateWebhook(ctx context.Context, serverID, siteID int, urlStr string) (*Webhook, error) {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/webhooks", serverID, siteID))
+	req := CreateWebhookRequest{URL: urlStr}
+	var webhook Webhook
+	id, err := c.PostJsonApi(ctx, path, req, &webhook)
+	if err != nil {
+		return nil, err
 	}
-	return res["url"], nil
+	webhook.ID = int64(id)
+	return &webhook, nil
 }
 
-func (c *Client) DeleteWebhook(ctx context.Context, serverID, siteID, webhookID int) (string, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/webhooks/%d", serverID, siteID, webhookID)
-	var res map[string]string
-	if err := c.doRequest(ctx, http.MethodDelete, path, nil, &res); err != nil {
-		return "", err
-	}
-	return res["url"], nil
+func (c *Client) DeleteWebhook(ctx context.Context, serverID, siteID, webhookID int) error {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/webhooks/%d", serverID, siteID, webhookID))
+	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }

@@ -75,6 +75,22 @@ func (c *Client) GetJsonApiWithoutCache(ctx context.Context, path string, out an
 	return id, nil
 }
 
+// GetJsonApiResource performs a GET request and returns the raw JSON:API resource.
+// This is useful with the unmarshalSingle generic helper.
+func (c *Client) GetJsonApiResource(ctx context.Context, path string) (jsonApiResource, error) {
+	resp, err := c.doRequestInternal(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return jsonApiResource{}, err
+	}
+	var envelope struct {
+		Data jsonApiResource `json:"data"`
+	}
+	if err := json.Unmarshal(resp.Body, &envelope); err != nil {
+		return jsonApiResource{}, fmt.Errorf("failed to parse JSON:API response: %w", err)
+	}
+	return envelope.Data, nil
+}
+
 // PostJsonApi performs a POST request and unwraps a single JSON:API resource response.
 // Returns the resource ID and unmarshals data.attributes into out.
 // If out is nil or the response body is empty, only the error is meaningful.
@@ -146,6 +162,20 @@ func unmarshalList[T any](items []jsonApiResource, setID func(*T, int64)) ([]T, 
 		result = append(result, v)
 	}
 	return result, nil
+}
+
+// unmarshalSingle is a helper that unmarshals a single JSON:API resource into a typed value.
+// It also sets the ID using the provided setter function.
+func unmarshalSingle[T any](item jsonApiResource, setID func(*T, int64)) (*T, error) {
+	var v T
+	if err := json.Unmarshal(item.Attributes, &v); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON:API item: %w", err)
+	}
+	id, _ := strconv.Atoi(item.ID)
+	if setID != nil {
+		setID(&v, int64(id))
+	}
+	return &v, nil
 }
 
 // orgPath creates an organization-scoped URL path.

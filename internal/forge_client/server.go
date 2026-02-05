@@ -2,7 +2,9 @@ package forge_client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
@@ -34,6 +36,12 @@ type Server struct {
 	IsReady          bool    `json:"is_ready"`
 	Tags             []Tag   `json:"tags"` //undocumented
 	Network          []int64 `json:"network"`
+
+	// Additional fields returned only on creation
+	SudoPassword        string  `json:"sudo_password,omitempty"`
+	DatabasePassword    *string `json:"database_password,omitempty"`
+	MeilisearchPassword *string `json:"meilisearch_password,omitempty"`
+	ProvisionCommand    *string `json:"provision_command,omitempty"`
 }
 
 type Tag struct {
@@ -97,50 +105,117 @@ func (c *Client) GetServerWithoutCache(ctx context.Context, serverID int) (*Serv
 
 // CreateServerRequest is the payload to create a server.
 type CreateServerRequest struct {
-	UbuntuVersion     string  `json:"ubuntu_version"`
-	Type              string  `json:"type"`
-	Name              string  `json:"name"`
-	Provider          string  `json:"provider"`
-	Size              *string `json:"size,omitempty"`
-	DiskSize          *int32  `json:"disk_size,omitempty"`
-	Circle            *int64  `json:"circle,omitempty"`
-	CredentialID      *int64  `json:"credential_id,omitempty"`
-	Region            *string `json:"region"`
-	IPAddress         *string `json:"ip_address,omitempty"`
-	PrivateIPAddress  *string `json:"private_ip_address,omitempty"`
-	SSHPort           *int32  `json:"ssh_port,omitempty"`
-	PHPVersion        string  `json:"php_version"`
-	Database          *string `json:"database,omitempty"`
-	DatabaseType      *string `json:"database_type,omitempty"`
-	Network           []int64 `json:"network"`
-	RecipeID          *int64  `json:"recipe_id,omitempty"`
-	AWSVPCID          *string `json:"aws_vpc_id,omitempty"`
-	AWSSubnetID       *string `json:"aws_subnet_id,omitempty"`
-	AWSVPCName        *string `json:"aws_vpc_name,omitempty"`
-	HetznerNetworkID  *string `json:"hetzner_network_id,omitempty"`
-	Ocean2VPCUUID     *string `json:"ocean2_vpc_uuid,omitempty"`
-	Ocean2VPCName     *string `json:"ocean2_vpc_name,omitempty"`
-	Vultr2NetworkID   *string `json:"vultr2_network_id,omitempty"`
-	Vultr2NetworkName *string `json:"vultr2_network_name,omitempty"`
+	Name          string   `json:"name"`
+	Provider      string   `json:"provider"`
+	Type          string   `json:"type"`
+	UbuntuVersion string   `json:"ubuntu_version"`
+	CredentialID  *int64   `json:"credential_id,omitempty"`
+	PHPVersion    string   `json:"php_version,omitempty"`
+	DatabaseType  *string  `json:"database_type,omitempty"`
+	Database      *string  `json:"database,omitempty"`
+	Circle        *int64   `json:"circle,omitempty"`
+	Network       []int64  `json:"network,omitempty"`
+	RecipeID      *int64   `json:"recipe_id,omitempty"`
+	Tags          []string `json:"tags,omitempty"`
+
+	// Provider-specific nested objects (new API format)
+	AWS     *AWSServerConfig     `json:"aws,omitempty"`
+	Ocean2  *Ocean2ServerConfig  `json:"ocean2,omitempty"`
+	Hetzner *HetznerServerConfig `json:"hetzner,omitempty"`
+	Vultr   *VultrServerConfig   `json:"vultr,omitempty"`
+	Akamai  *AkamaiServerConfig  `json:"akamai,omitempty"`
+	Laravel *LaravelServerConfig `json:"laravel,omitempty"`
+	Custom  *CustomServerConfig  `json:"custom,omitempty"`
+}
+
+// AWSServerConfig holds AWS-specific server configuration
+type AWSServerConfig struct {
+	RegionID   string `json:"region_id"`
+	SizeID     string `json:"size_id"`
+	VPCUUID    string `json:"vpc_uuid,omitempty"`
+	SubnetUUID string `json:"subnet_uuid,omitempty"`
+	DiskSize   string `json:"disk_size"`
+}
+
+// Ocean2ServerConfig holds DigitalOcean-specific server configuration
+type Ocean2ServerConfig struct {
+	RegionID            string `json:"region_id"`
+	SizeID              string `json:"size_id"`
+	VPCUUID             string `json:"vpc_uuid,omitempty"`
+	EnableWeeklyBackups string `json:"enable_weekly_backups,omitempty"`
+}
+
+// HetznerServerConfig holds Hetzner-specific server configuration
+type HetznerServerConfig struct {
+	RegionID           string `json:"region_id"`
+	SizeID             string `json:"size_id"`
+	NetworkID          string `json:"network_id,omitempty"`
+	EnableDailyBackups string `json:"enable_daily_backups,omitempty"`
+}
+
+// VultrServerConfig holds Vultr-specific server configuration
+type VultrServerConfig struct {
+	RegionID  string `json:"region_id"`
+	SizeID    string `json:"size_id"`
+	NetworkID string `json:"network_id,omitempty"`
+}
+
+// AkamaiServerConfig holds Akamai/Linode-specific server configuration
+type AkamaiServerConfig struct {
+	RegionID string `json:"region_id"`
+	SizeID   string `json:"size_id"`
+}
+
+// LaravelServerConfig holds Laravel VPS-specific server configuration
+type LaravelServerConfig struct {
+	RegionID string `json:"region_id"`
+	SizeID   string `json:"size_id"`
+}
+
+// CustomServerConfig holds custom VPS server configuration
+type CustomServerConfig struct {
+	IPAddress        string `json:"ip_address"`
+	PrivateIPAddress string `json:"private_ip_address,omitempty"`
+	SSHPort          string `json:"ssh_port,omitempty"`
+	BehindNAT        string `json:"behind_nat,omitempty"`
+	NATSSHPort       string `json:"nat_ssh_port,omitempty"`
 }
 
 type CreateServerResponse struct {
-	Server              Server  `json:"server"`
+	Server              Server  `json:"-"` // Populated from JSON:API response
 	SudoPassword        string  `json:"sudo_password"`
 	DatabasePassword    *string `json:"database_password"`
 	MeilisearchPassword *string `json:"meilisearch_password"`
 	ProvisionCommand    *string `json:"provision_command"`
 }
 
-// CreateServer uses doRequest directly because the POST /servers endpoint
-// returns application/json (not JSON:API format).
+// CreateServer creates a new server. The API returns JSON:API format.
 func (c *Client) CreateServer(ctx context.Context, req CreateServerRequest) (*CreateServerResponse, error) {
 	path := c.orgPath("/servers")
-	var resp CreateServerResponse
-	if err := c.doRequest(ctx, http.MethodPost, path, req, &resp); err != nil {
+
+	// Debug: log the request
+	reqBytes, _ := json.Marshal(req)
+	log.Printf("[DEBUG] CreateServer request body: %s", string(reqBytes))
+
+	// Use PostJsonApi which handles JSON:API format
+	var server Server
+	serverID, err := c.PostJsonApi(ctx, path, req, &server)
+	if err != nil {
 		return nil, err
 	}
-	return &resp, nil
+
+	server.ID = int64(serverID)
+	log.Printf("[DEBUG] CreateServer - Server ID from JSON:API: %d", serverID)
+
+	resp := &CreateServerResponse{
+		Server:              server,
+		SudoPassword:        server.SudoPassword,
+		DatabasePassword:    server.DatabasePassword,
+		MeilisearchPassword: server.MeilisearchPassword,
+		ProvisionCommand:    server.ProvisionCommand,
+	}
+
+	return resp, nil
 }
 
 // Update payload

@@ -9,7 +9,7 @@ import (
 type FirewallRule struct {
 	ID        int64   `json:"id"`
 	Name      string  `json:"name"`
-	Port      int     `json:"port"`
+	Port      string  `json:"port"`
 	Type      string  `json:"type"`
 	IpAddress *string `json:"ip_address"`
 	Status    string  `json:"status"`
@@ -19,7 +19,7 @@ type FirewallRule struct {
 type CreateFirewallRuleRequest struct {
 	Name      string  `json:"name"`
 	IpAddress *string `json:"ip_address"`
-	Port      int     `json:"port"`
+	Port      string  `json:"port"`
 	Type      string  `json:"type"`
 }
 

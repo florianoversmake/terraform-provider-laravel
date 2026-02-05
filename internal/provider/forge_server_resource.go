@@ -25,33 +25,6 @@ import (
 var _ resource.Resource = &ForgeServerResource{}
 var _ resource.ResourceWithImportState = &ForgeServerResource{}
 
-// Parameters
-// Key	Description
-// ubuntu_version	The version of Ubuntu to create the server with. Valid values are "20.04", "22.04", and "24.04". "24.04" is used by default if no value is defined. It is recommended to always specify a version as the default may change at any time.
-// type	The type of server to create. Valid values are app, web, loadbalancer, cache, database, worker, meilisearch. app is used by default if no value is defined.
-// provider	The server provider. Valid values are ocean2 for Digital Ocean, akamai (Linode), vultr2, aws, hetzner and custom.
-// size	The instance type (aws)
-// disk_size	The size of the disk in GB. Valid when the provider is aws. Minimum of 8GB. Example: 20.
-// circle	The ID of a circle to create the server within.
-// credential_id	This is only required when the provider is not custom.
-// region	The name of the region where the server will be created. This value is not required you are building a Custom VPS server. Valid region identifiers.
-// ip_address	The IP Address of the server. Only required when the provider is custom.
-// private_ip_address	The Private IP Address of the server. Only required when the provider is custom.
-// php_version	Valid values are php84, php83, php82, php81, php80, php74, php73,php72,php82, php70, and php56.
-// database	The name of the database Forge should create when building the server. If omitted, forge will be used.
-// database_type	Valid values are mysql8, mariadb106, mariadb1011, mariadb114, postgres, postgres13, postgres14, postgres15, postgres16 or postgres17.
-// network	An array of server IDs that the server should be able to connect to.
-// recipe_id	An optional ID of a recipe to run after provisioning.
-// aws_vpc_id	ID of the existing VPC
-// aws_subnet_id	ID of the existing subnet
-// aws_vpc_name	When creating a new one
-// hetzner_network_id	ID of the existing VPC
-// ocean2_vpc_uuid	UUID of the existing VPC
-// ocean2_vpc_name	When creating a new one
-// vultr2_network_id	ID of the existing private network
-// vultr2_network_name	When creating a new one
-
-// ForgeServerResourceModel defines the schema data model for the server.
 type ForgeServerResourceModel struct {
 	ID             types.Int64  `tfsdk:"id"`
 	ServerProvider types.String `tfsdk:"server_provider"`
@@ -377,26 +350,68 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	payload := forge_client.CreateServerRequest{
-		UbuntuVersion:    plan.UbuntuVersion.ValueString(),
-		Name:             plan.Name.ValueString(),
-		Type:             plan.Type.ValueString(),
-		Provider:         plan.ServerProvider.ValueString(),
-		CredentialID:     plan.CredentialID.ValueInt64Pointer(),
-		Circle:           plan.Circle.ValueInt64Pointer(),
-		PHPVersion:       plan.PhpVersion.ValueString(),
-		DatabaseType:     plan.DatabaseType.ValueStringPointer(),
-		Database:         plan.Database.ValueStringPointer(),
-		Network:          networkElements,
-		RecipeID:         plan.RecipeID.ValueInt64Pointer(),
-		IPAddress:        plan.IpAddress.ValueStringPointer(),
-		PrivateIPAddress: plan.PrivateIpAddress.ValueStringPointer(),
-		SSHPort:          plan.SshPort.ValueInt32Pointer(),
-		Region:           plan.Region.ValueStringPointer(),
-		Size:             plan.Size.ValueStringPointer(),
-		DiskSize:         plan.DiskSize.ValueInt32Pointer(),
-		AWSVPCID:         plan.AwsVpcID.ValueStringPointer(),
-		AWSSubnetID:      plan.AwsSubnetID.ValueStringPointer(),
-		AWSVPCName:       plan.AwsVpcName.ValueStringPointer(),
+		Name:          plan.Name.ValueString(),
+		Provider:      plan.ServerProvider.ValueString(),
+		Type:          plan.Type.ValueString(),
+		UbuntuVersion: plan.UbuntuVersion.ValueString(),
+		CredentialID:  plan.CredentialID.ValueInt64Pointer(),
+		PHPVersion:    plan.PhpVersion.ValueString(),
+		DatabaseType:  plan.DatabaseType.ValueStringPointer(),
+		Database:      plan.Database.ValueStringPointer(),
+		Circle:        plan.Circle.ValueInt64Pointer(),
+		Network:       networkElements,
+		RecipeID:      plan.RecipeID.ValueInt64Pointer(),
+	}
+
+	// Set provider-specific configuration based on server_provider
+	switch plan.ServerProvider.ValueString() {
+	case "aws":
+		diskSize := "8" // Default minimum disk size for AWS
+		if !plan.DiskSize.IsNull() && plan.DiskSize.ValueInt32() > 0 {
+			diskSize = strconv.Itoa(int(plan.DiskSize.ValueInt32()))
+		}
+		payload.AWS = &forge_client.AWSServerConfig{
+			RegionID:   plan.Region.ValueString(),
+			SizeID:     plan.Size.ValueString(),
+			DiskSize:   diskSize,
+			VPCUUID:    plan.AwsVpcID.ValueString(),
+			SubnetUUID: plan.AwsSubnetID.ValueString(),
+		}
+	case "ocean2":
+		payload.Ocean2 = &forge_client.Ocean2ServerConfig{
+			RegionID: plan.Region.ValueString(),
+			SizeID:   plan.Size.ValueString(),
+		}
+	case "hetzner":
+		payload.Hetzner = &forge_client.HetznerServerConfig{
+			RegionID: plan.Region.ValueString(),
+			SizeID:   plan.Size.ValueString(),
+		}
+	case "vultr", "vultr2":
+		payload.Vultr = &forge_client.VultrServerConfig{
+			RegionID: plan.Region.ValueString(),
+			SizeID:   plan.Size.ValueString(),
+		}
+	case "akamai":
+		payload.Akamai = &forge_client.AkamaiServerConfig{
+			RegionID: plan.Region.ValueString(),
+			SizeID:   plan.Size.ValueString(),
+		}
+	case "laravel":
+		payload.Laravel = &forge_client.LaravelServerConfig{
+			RegionID: plan.Region.ValueString(),
+			SizeID:   plan.Size.ValueString(),
+		}
+	case "custom":
+		sshPort := "22"
+		if !plan.SshPort.IsNull() && plan.SshPort.ValueInt32() > 0 {
+			sshPort = strconv.Itoa(int(plan.SshPort.ValueInt32()))
+		}
+		payload.Custom = &forge_client.CustomServerConfig{
+			IPAddress:        plan.IpAddress.ValueString(),
+			PrivateIPAddress: plan.PrivateIpAddress.ValueString(),
+			SSHPort:          sshPort,
+		}
 	}
 
 	response, err := r.client.CreateServer(ctx, payload)
@@ -442,15 +457,17 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 
 	plan.Region = types.StringValue(regionId)
 
-	sizeSize, err := r.client.GetRegionSizeSizeByID(ctx, plan.ServerProvider.ValueString(), regionId, response.Server.Size)
-	if err != nil {
-		resp.Diagnostics.AddError("Error getting size size", err.Error())
-		return
+	// The server.Size from API is already the size code (e.g., "t2.micro")
+	// Use the planned size value which is what the user configured
+	// This avoids issues with API returning different formats
+	// plan.Size is already set from the plan
+
+	// Handle network - ensure we always have a list, never null
+	networkSlice := response.Server.Network
+	if networkSlice == nil {
+		networkSlice = []int64{}
 	}
-
-	plan.Size = types.StringValue(sizeSize)
-
-	listValue, diags := types.ListValueFrom(ctx, types.Int64Type, response.Server.Network)
+	listValue, diags := types.ListValueFrom(ctx, types.Int64Type, networkSlice)
 	if diags.HasError() {
 		resp.Diagnostics.Append(diags...)
 		return
@@ -500,19 +517,20 @@ func (r *ForgeServerResource) Read(ctx context.Context, req resource.ReadRequest
 
 	state.Region = types.StringValue(regionId)
 
-	sizeSize, err := r.client.GetRegionSizeSizeByID(ctx, state.ServerProvider.ValueString(), regionId, server.Size)
-	if err != nil {
-		resp.Diagnostics.AddError("Error getting size size", err.Error())
-		return
-	}
-
-	state.Size = types.StringValue(sizeSize)
+	// The server.Size from API may be a size ID or code
+	// Preserve the state value for size since it's read-only after creation
+	// and the API may return it in a different format than originally specified
 
 	state.DatabasePassword = types.StringPointerValue(state.DatabasePassword.ValueStringPointer())
 	state.Circle = types.Int64PointerValue(state.Circle.ValueInt64Pointer())
 	state.RecipeID = types.Int64PointerValue(state.RecipeID.ValueInt64Pointer())
 
-	listValue, diags := types.ListValueFrom(ctx, types.Int64Type, server.Network)
+	// Handle network - ensure we always have a list, never null
+	networkSlice := server.Network
+	if networkSlice == nil {
+		networkSlice = []int64{}
+	}
+	listValue, diags := types.ListValueFrom(ctx, types.Int64Type, networkSlice)
 	if diags.HasError() {
 		resp.Diagnostics.Append(diags...)
 		return

@@ -26,7 +26,7 @@ func (c *Client) CreateNginxTemplate(ctx context.Context, serverID int, name, co
 }
 
 func (c *Client) ListNginxTemplates(ctx context.Context, serverID int) ([]NginxTemplate, error) {
-	path := c.orgPath(fmt.Sprintf("/servers/%d/nginx/templates/default", serverID))
+	path := c.orgPath(fmt.Sprintf("/servers/%d/nginx/templates", serverID))
 	items, err := c.GetJsonApiList(ctx, path)
 	if err != nil {
 		return nil, err

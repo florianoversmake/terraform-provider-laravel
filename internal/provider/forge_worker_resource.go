@@ -272,6 +272,8 @@ func (r *ForgeWorkerResource) Create(ctx context.Context, req resource.CreateReq
 	plan.CreatedAt = types.StringValue(worker.CreatedAt)
 	if worker.Directory != nil {
 		plan.Directory = types.StringValue(*worker.Directory)
+	} else {
+		plan.Directory = types.StringValue("")
 	}
 
 	diags = resp.State.Set(ctx, plan)
@@ -306,6 +308,8 @@ func (r *ForgeWorkerResource) Read(ctx context.Context, req resource.ReadRequest
 	state.CreatedAt = types.StringValue(worker.CreatedAt)
 	if worker.Directory != nil {
 		state.Directory = types.StringValue(*worker.Directory)
+	} else {
+		state.Directory = types.StringValue("")
 	}
 	// Parse memory from the command if present.
 	mem, err := parseMemoryFromCommand(worker.Command)

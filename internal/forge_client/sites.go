@@ -48,7 +48,8 @@ type SiteMaintenanceMode struct {
 
 type CreateSiteRequest struct {
 	Type                    string  `json:"type"`
-	Name                    string  `json:"name,omitempty"`
+	DomainMode              string  `json:"domain_mode"`    // "on-forge" or "custom"
+	Name                    string  `json:"name,omitempty"` // subdomain for on-forge, full domain for custom
 	WebDirectory            *string `json:"web_directory,omitempty"`
 	RootDirectory           *string `json:"root_directory,omitempty"`
 	IsIsolated              bool    `json:"is_isolated,omitempty"`
@@ -61,6 +62,8 @@ type CreateSiteRequest struct {
 	Branch                  *string `json:"branch,omitempty"`
 	DatabaseID              *int    `json:"database_id,omitempty"`
 	PushToDeploy            bool    `json:"push_to_deploy,omitempty"`
+	AllowWildcardSubdomains bool    `json:"allow_wildcard_subdomains"`
+	WWWRedirectType         string  `json:"www_redirect_type"`
 }
 
 type UpdateSiteRequest struct {

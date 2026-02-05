@@ -113,6 +113,8 @@ type DeploymentFailureEmailsRequest struct {
 	Emails []string `json:"emails"`
 }
 
+// SetDeploymentFailureEmails is DEPRECATED - this endpoint no longer exists in the new Forge API.
+// This function is kept for backward compatibility but will return a 404 error.
 func (c *Client) SetDeploymentFailureEmails(ctx context.Context, serverID, siteID int, emails []string) error {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployment-failure-emails", serverID, siteID))
 	req := DeploymentFailureEmailsRequest{Emails: emails}
