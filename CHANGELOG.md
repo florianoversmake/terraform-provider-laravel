@@ -30,6 +30,7 @@ NEW TERRAFORM MODULES:
 
 ENHANCEMENTS:
 
+* All data sources now automatically paginate through all results using cursor-based pagination. Previously, list endpoints only returned the first page (default 30 items).
 * resource/laravel_envoyer_deployment: Added import support (format: project_id/deployment_id).
 * Migrated entire Forge API client from deprecated v1 API to new organization-scoped JSON:API format.
 * Most API endpoints now use organization-scoped paths (`/orgs/{org}/...`).

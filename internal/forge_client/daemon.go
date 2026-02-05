@@ -42,7 +42,7 @@ func (c *Client) CreateDaemon(ctx context.Context, serverID int, req CreateDaemo
 
 func (c *Client) ListDaemons(ctx context.Context, serverID int) ([]Daemon, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/daemons", serverID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

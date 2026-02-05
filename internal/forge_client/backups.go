@@ -35,7 +35,7 @@ type Backup struct {
 
 func (c *Client) ListBackupConfigurations(ctx context.Context, serverID int) ([]Backup, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/database/backups", serverID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

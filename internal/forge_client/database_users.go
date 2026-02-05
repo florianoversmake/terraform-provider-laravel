@@ -33,7 +33,7 @@ func (c *Client) CreateDatabaseUser(ctx context.Context, serverID int, req Creat
 
 func (c *Client) ListDatabaseUsers(ctx context.Context, serverID int) ([]DatabaseUser, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/database/users", serverID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

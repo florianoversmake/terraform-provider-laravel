@@ -18,7 +18,7 @@ type PHPVersion struct {
 
 func (c *Client) ListPHPVersions(ctx context.Context, serverID int) ([]PHPVersion, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/php/versions", serverID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

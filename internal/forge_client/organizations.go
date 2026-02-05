@@ -17,7 +17,7 @@ type Organization struct {
 
 // ListOrganizations returns all organizations the user has access to.
 func (c *Client) ListOrganizations(ctx context.Context) ([]Organization, error) {
-	items, err := c.GetJsonApiList(ctx, "/orgs")
+	items, err := c.GetJsonApiListAll(ctx, "/orgs")
 	if err != nil {
 		return nil, err
 	}

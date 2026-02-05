@@ -33,7 +33,7 @@ func (c *Client) CreateRedirectRule(ctx context.Context, serverID, siteID int, r
 
 func (c *Client) ListRedirectRules(ctx context.Context, serverID, siteID int) ([]RedirectRule, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/redirect-rules", serverID, siteID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

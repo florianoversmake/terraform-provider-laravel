@@ -86,7 +86,7 @@ func (c *Client) GetDeploymentLog(ctx context.Context, serverID, siteID int) (st
 
 func (c *Client) ListDeployments(ctx context.Context, serverID, siteID int) ([]Deployment, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/deployments", serverID, siteID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

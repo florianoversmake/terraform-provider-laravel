@@ -87,7 +87,7 @@ func (c *Client) CreateSite(ctx context.Context, serverID int, req CreateSiteReq
 }
 
 func (c *Client) ListSites(ctx context.Context, serverID int) ([]Site, error) {
-	items, err := c.GetJsonApiList(ctx, c.orgPath(fmt.Sprintf("/servers/%d/sites", serverID)))
+	items, err := c.GetJsonApiListAll(ctx, c.orgPath(fmt.Sprintf("/servers/%d/sites", serverID)))
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ type UpdateBalancingRequest struct {
 
 func (c *Client) GetSiteBalancing(ctx context.Context, serverID, siteID int) ([]balancingNode, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/load-balancing-nodes", serverID, siteID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

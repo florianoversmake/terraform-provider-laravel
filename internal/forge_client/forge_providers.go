@@ -49,7 +49,7 @@ type ProviderRegionSizeInfo struct {
 // ListProviders returns all cloud providers.
 // Note: This endpoint does not require an organization scope.
 func (c *Client) ListProviders(ctx context.Context) ([]ProviderInfo, error) {
-	items, err := c.GetJsonApiList(ctx, "/providers?page[size]=100")
+	items, err := c.GetJsonApiListAll(ctx, "/providers")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list providers: %w", err)
 	}
@@ -70,8 +70,8 @@ func (c *Client) GetProvider(ctx context.Context, providerID int64) (*ProviderIn
 // ListProviderRegions returns all regions for a specific provider.
 // Note: This endpoint does not require an organization scope.
 func (c *Client) ListProviderRegions(ctx context.Context, providerID int64) ([]ProviderRegionInfo, error) {
-	path := fmt.Sprintf("/providers/%d/regions?page[size]=100", providerID)
-	items, err := c.GetJsonApiList(ctx, path)
+	path := fmt.Sprintf("/providers/%d/regions", providerID)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list provider regions: %w", err)
 	}
@@ -92,8 +92,8 @@ func (c *Client) GetProviderRegion(ctx context.Context, providerID, regionID int
 // ListProviderSizes returns all sizes for a specific provider.
 // Note: This endpoint does not require an organization scope.
 func (c *Client) ListProviderSizes(ctx context.Context, providerID int64) ([]ProviderSizeInfo, error) {
-	path := fmt.Sprintf("/providers/%d/sizes?page[size]=100", providerID)
-	items, err := c.GetJsonApiList(ctx, path)
+	path := fmt.Sprintf("/providers/%d/sizes", providerID)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list provider sizes: %w", err)
 	}
@@ -114,8 +114,8 @@ func (c *Client) GetProviderSize(ctx context.Context, providerID, sizeID int64) 
 // ListProviderRegionSizes returns all sizes available in a specific region.
 // Note: This endpoint does not require an organization scope.
 func (c *Client) ListProviderRegionSizes(ctx context.Context, providerID, regionID int64) ([]ProviderRegionSizeInfo, error) {
-	path := fmt.Sprintf("/providers/%d/regions/%d/sizes?page[size]=100", providerID, regionID)
-	items, err := c.GetJsonApiList(ctx, path)
+	path := fmt.Sprintf("/providers/%d/regions/%d/sizes", providerID, regionID)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list provider region sizes: %w", err)
 	}

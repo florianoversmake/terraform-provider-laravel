@@ -37,7 +37,7 @@ func (c *Client) SyncDatabase(ctx context.Context, serverID int) error {
 
 func (c *Client) ListDatabases(ctx context.Context, serverID int) ([]Database, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/database/schemas", serverID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

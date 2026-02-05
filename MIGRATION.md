@@ -7,7 +7,8 @@ This document tracks the progress of migrating the Laravel Forge Terraform Provi
 ### Completed
 
 - [x] **Core Client** - Updated base URL, added organization support, JSON:API response parsing
-- [x] **JSON:API Helpers** - Added `GetJsonApiList`, `GetJsonApiResource`, `PostJsonApi`, `PutJsonApi`, `unmarshalList`, `unmarshalSingle`
+- [x] **JSON:API Helpers** - Added `GetJsonApiList`, `GetJsonApiListAll`, `GetJsonApiResource`, `PostJsonApi`, `PutJsonApi`, `unmarshalList`, `unmarshalSingle`
+- [x] **Cursor-Based Pagination** - Added `GetJsonApiListAll` which automatically walks all pages using cursor-based pagination (`meta.next_cursor`). All list endpoints now use this method to return complete result sets instead of a single page.
 - [x] **Servers** - Migrated to `/orgs/{org}/servers`
 - [x] **Sites** - Migrated to `/orgs/{org}/servers/{server}/sites`
 - [x] **Workers** - Migrated to `/orgs/{org}/servers/{server}/background-processes` (renamed from daemons)

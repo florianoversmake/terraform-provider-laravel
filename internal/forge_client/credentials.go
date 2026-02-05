@@ -14,7 +14,7 @@ type Credential struct {
 }
 
 func (c *Client) ListCredentials(ctx context.Context) ([]Credential, error) {
-	items, err := c.GetJsonApiList(ctx, c.orgPath("/server-credentials"))
+	items, err := c.GetJsonApiListAll(ctx, c.orgPath("/server-credentials"))
 	if err != nil {
 		return nil, err
 	}

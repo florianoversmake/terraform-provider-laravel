@@ -28,7 +28,7 @@ type CreateWorkerRequest struct {
 }
 
 func (c *Client) ListWorkers(ctx context.Context, serverID int, siteID int) ([]Worker, error) {
-	items, err := c.GetJsonApiList(ctx, c.orgPath(fmt.Sprintf("/servers/%d/background-processes", serverID)))
+	items, err := c.GetJsonApiListAll(ctx, c.orgPath(fmt.Sprintf("/servers/%d/background-processes", serverID)))
 	if err != nil {
 		return nil, err
 	}

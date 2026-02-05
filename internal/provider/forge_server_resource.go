@@ -366,7 +366,7 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 	// Set provider-specific configuration based on server_provider
 	switch plan.ServerProvider.ValueString() {
 	case "aws":
-		diskSize := "8" // Default minimum disk size for AWS
+		diskSize := "20" // Default minimum disk size for AWS
 		if !plan.DiskSize.IsNull() && plan.DiskSize.ValueInt32() > 0 {
 			diskSize = strconv.Itoa(int(plan.DiskSize.ValueInt32()))
 		}
@@ -646,6 +646,7 @@ func (r *ForgeServerResource) ImportState(ctx context.Context, req resource.Impo
 		DatabasePassword:    types.StringValue(""),
 		MeilisearchPassword: types.StringValue(""),
 		ProvisionCommand:    types.StringValue(""),
+		DeleteProtection:    types.BoolValue(false),
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)

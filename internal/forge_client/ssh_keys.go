@@ -34,7 +34,7 @@ func (c *Client) CreateSSHKey(ctx context.Context, serverID int, req CreateSSHKe
 }
 
 func (c *Client) ListSSHKeys(ctx context.Context, serverID int) ([]SSHKey, error) {
-	items, err := c.GetJsonApiList(ctx, c.orgPath(fmt.Sprintf("/servers/%d/ssh-keys", serverID)))
+	items, err := c.GetJsonApiListAll(ctx, c.orgPath(fmt.Sprintf("/servers/%d/ssh-keys", serverID)))
 	if err != nil {
 		return nil, err
 	}

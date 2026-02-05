@@ -39,7 +39,7 @@ func (c *Client) CreateJob(ctx context.Context, serverID int, req CreateJobReque
 }
 
 func (c *Client) ListJobs(ctx context.Context, serverID int) ([]Job, error) {
-	items, err := c.GetJsonApiList(ctx, c.orgPath(fmt.Sprintf("/servers/%d/scheduled-jobs", serverID)))
+	items, err := c.GetJsonApiListAll(ctx, c.orgPath(fmt.Sprintf("/servers/%d/scheduled-jobs", serverID)))
 	if err != nil {
 		return nil, err
 	}

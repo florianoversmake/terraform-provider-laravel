@@ -33,7 +33,7 @@ func (c *Client) CreateRecipe(ctx context.Context, req CreateRecipeRequest) (*Re
 }
 
 func (c *Client) ListRecipes(ctx context.Context) ([]Recipe, error) {
-	items, err := c.GetJsonApiList(ctx, c.orgPath("/recipes"))
+	items, err := c.GetJsonApiListAll(ctx, c.orgPath("/recipes"))
 	if err != nil {
 		return nil, err
 	}

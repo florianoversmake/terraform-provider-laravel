@@ -42,7 +42,7 @@ func (c *Client) ExecuteSiteCommand(ctx context.Context, serverID, siteID int, c
 
 func (c *Client) ListSiteCommands(ctx context.Context, serverID, siteID int) ([]Command, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/commands", serverID, siteID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

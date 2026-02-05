@@ -51,7 +51,7 @@ type Tag struct {
 }
 
 func (c *Client) ListServers(ctx context.Context) ([]Server, error) {
-	items, err := c.GetJsonApiList(ctx, c.orgPath("/servers"))
+	items, err := c.GetJsonApiListAll(ctx, c.orgPath("/servers"))
 	if err != nil {
 		return nil, err
 	}
@@ -182,14 +182,24 @@ type CustomServerConfig struct {
 }
 
 type CreateServerResponse struct {
-	Server              Server  `json:"-"` // Populated from JSON:API response
+	Server              Server  `json:"-"` // Populated from JSON:API data.attributes
 	SudoPassword        string  `json:"sudo_password"`
 	DatabasePassword    *string `json:"database_password"`
 	MeilisearchPassword *string `json:"meilisearch_password"`
 	ProvisionCommand    *string `json:"provision_command"`
 }
 
-// CreateServer creates a new server. The API returns JSON:API format.
+// createServerMeta represents the data.meta object returned by the create server endpoint.
+// Passwords and provision commands are returned here, not in data.attributes.
+type createServerMeta struct {
+	SudoPassword        string  `json:"sudo_password"`
+	DatabasePassword    *string `json:"database_password"`
+	MeilisearchPassword *string `json:"meilisearch_password"`
+	ProvisionCommand    *string `json:"provision_command"`
+}
+
+// CreateServer creates a new server. The API returns JSON:API format with
+// server details in data.attributes and passwords in data.meta.
 func (c *Client) CreateServer(ctx context.Context, req CreateServerRequest) (*CreateServerResponse, error) {
 	path := c.orgPath("/servers")
 
@@ -197,22 +207,42 @@ func (c *Client) CreateServer(ctx context.Context, req CreateServerRequest) (*Cr
 	reqBytes, _ := json.Marshal(req)
 	log.Printf("[DEBUG] CreateServer request body: %s", string(reqBytes))
 
-	// Use PostJsonApi which handles JSON:API format
-	var server Server
-	serverID, err := c.PostJsonApi(ctx, path, req, &server)
+	// Make the POST request and get the raw response
+	rawResp, err := c.doRequestInternal(ctx, http.MethodPost, path, req)
 	if err != nil {
 		return nil, err
 	}
 
+	// Extract attributes and meta from data
+	serverID, attrs, meta, err := extractJsonApiSingleWithMeta(rawResp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal server from data.attributes
+	var server Server
+	if len(attrs) > 0 {
+		if err := json.Unmarshal(attrs, &server); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal server attributes: %w", err)
+		}
+	}
 	server.ID = int64(serverID)
 	log.Printf("[DEBUG] CreateServer - Server ID from JSON:API: %d", serverID)
 
+	// Unmarshal passwords from data.meta
+	var serverMeta createServerMeta
+	if len(meta) > 0 {
+		if err := json.Unmarshal(meta, &serverMeta); err != nil {
+			log.Printf("[WARN] CreateServer - failed to unmarshal data.meta: %v", err)
+		}
+	}
+
 	resp := &CreateServerResponse{
 		Server:              server,
-		SudoPassword:        server.SudoPassword,
-		DatabasePassword:    server.DatabasePassword,
-		MeilisearchPassword: server.MeilisearchPassword,
-		ProvisionCommand:    server.ProvisionCommand,
+		SudoPassword:        serverMeta.SudoPassword,
+		DatabasePassword:    serverMeta.DatabasePassword,
+		MeilisearchPassword: serverMeta.MeilisearchPassword,
+		ProvisionCommand:    serverMeta.ProvisionCommand,
 	}
 
 	return resp, nil

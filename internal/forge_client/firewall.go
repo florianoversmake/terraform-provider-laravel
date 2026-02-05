@@ -36,7 +36,7 @@ func (c *Client) CreateFirewallRule(ctx context.Context, serverID int, req Creat
 
 func (c *Client) ListFirewallRules(ctx context.Context, serverID int) ([]FirewallRule, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/firewall-rules", serverID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

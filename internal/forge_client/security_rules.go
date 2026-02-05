@@ -45,7 +45,7 @@ func (c *Client) CreateSecurityRule(ctx context.Context, serverID, siteID int, r
 
 func (c *Client) ListSecurityRules(ctx context.Context, serverID, siteID int) ([]SecurityRule, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/security-rules", serverID, siteID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

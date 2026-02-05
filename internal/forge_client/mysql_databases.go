@@ -19,7 +19,7 @@ func (c *Client) CreateMySQLDatabase(ctx context.Context, serverID int, req Crea
 
 func (c *Client) ListMySQLDatabases(ctx context.Context, serverID int) ([]Database, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/mysql", serverID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (c *Client) CreateMySQLDatabaseUser(ctx context.Context, serverID int, req 
 
 func (c *Client) ListMySQLDatabaseUsers(ctx context.Context, serverID int) ([]DatabaseUser, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/mysql-users", serverID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

@@ -27,7 +27,7 @@ type CreateMonitorRequest struct {
 
 func (c *Client) ListMonitors(ctx context.Context, serverID int) ([]Monitor, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/monitors", serverID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}

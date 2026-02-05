@@ -18,7 +18,7 @@ type CreateWebhookRequest struct {
 
 func (c *Client) ListWebhooks(ctx context.Context, serverID, siteID int) ([]Webhook, error) {
 	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/webhooks", serverID, siteID))
-	items, err := c.GetJsonApiList(ctx, path)
+	items, err := c.GetJsonApiListAll(ctx, path)
 	if err != nil {
 		return nil, err
 	}
