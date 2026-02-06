@@ -3,12 +3,12 @@
 page_title: "laravel_forge_certificate Resource - laravel"
 subcategory: ""
 description: |-
-  Forge certificate resource. This resource allows you to manage SSL certificates in Forge.
+  Forge certificate resource. This resource allows you to manage SSL certificates in Forge. In the new API, certificates are managed per domain record.
 ---
 
 # laravel_forge_certificate (Resource)
 
-Forge certificate resource. This resource allows you to manage SSL certificates in Forge.
+Forge certificate resource. This resource allows you to manage SSL certificates in Forge. In the new API, certificates are managed per domain record.
 
 ## Example Usage
 
@@ -39,6 +39,7 @@ resource "tls_self_signed_cert" "example" {
 resource "laravel_forge_certificate" "example" {
   server_id = 1234
   site_id   = 1234
+  domain_id = 5678
 
   key         = tls_private_key.ed25519-example.private_key_pem
   certificate = tls_self_signed_cert.example.cert_pem
@@ -51,18 +52,14 @@ resource "laravel_forge_certificate" "example" {
 ### Required
 
 - `certificate` (String) The certificate.
+- `domain_id` (Number) The ID of the domain record the certificate is associated with.
 - `key` (String) The key of the certificate.
 - `server_id` (Number) The ID of the server the certificate is associated with.
 - `site_id` (Number) The ID of the site the certificate is associated with.
 
-### Optional
-
-- `active` (Boolean) Whether the certificate is active.
-
 ### Read-Only
 
-- `created_at` (Number)
-- `domain` (String) The domain of the certificate.
-- `existing` (Boolean) Whether the certificate already exists.
+- `created_at` (String)
 - `id` (Number) The ID of this resource.
 - `request_status` (String) The request status of the certificate.
+- `status` (String) The status of the certificate.

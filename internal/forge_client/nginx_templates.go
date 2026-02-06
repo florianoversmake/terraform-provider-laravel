@@ -13,53 +13,51 @@ type NginxTemplate struct {
 	Content  string `json:"content"`
 }
 
-type nginxTemplateResponse struct {
-	Template NginxTemplate `json:"template"`
-}
-
-type nginxTemplatesResponse struct {
-	Templates []NginxTemplate `json:"templates"`
-}
-
 func (c *Client) CreateNginxTemplate(ctx context.Context, serverID int, name, content string) (*NginxTemplate, error) {
-	path := fmt.Sprintf("/servers/%d/nginx/templates", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/nginx/templates", serverID))
 	req := map[string]string{"name": name, "content": content}
-	var res nginxTemplateResponse
-	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
+	var tmpl NginxTemplate
+	id, err := c.PostJsonApi(ctx, path, req, &tmpl)
+	if err != nil {
 		return nil, err
 	}
-	return &res.Template, nil
+	tmpl.ID = int64(id)
+	return &tmpl, nil
 }
 
 func (c *Client) ListNginxTemplates(ctx context.Context, serverID int) ([]NginxTemplate, error) {
-	path := fmt.Sprintf("/servers/%d/nginx/templates/default", serverID)
-	var res nginxTemplatesResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/nginx/templates", serverID))
+	items, err := c.GetJsonApiListAll(ctx, path)
+	if err != nil {
 		return nil, err
 	}
-	return res.Templates, nil
+	return unmarshalList(items, func(t *NginxTemplate, id int64) { t.ID = id })
 }
 
 func (c *Client) GetNginxTemplate(ctx context.Context, serverID, templateID int) (*NginxTemplate, error) {
-	path := fmt.Sprintf("/servers/%d/nginx/templates/%d", serverID, templateID)
-	var res nginxTemplateResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/nginx/templates/%d", serverID, templateID))
+	var tmpl NginxTemplate
+	id, err := c.GetJsonApi(ctx, path, &tmpl)
+	if err != nil {
 		return nil, err
 	}
-	return &res.Template, nil
+	tmpl.ID = int64(id)
+	return &tmpl, nil
 }
 
 func (c *Client) UpdateNginxTemplate(ctx context.Context, serverID, templateID int, name, content string) (*NginxTemplate, error) {
-	path := fmt.Sprintf("/servers/%d/nginx/templates/%d", serverID, templateID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/nginx/templates/%d", serverID, templateID))
 	req := map[string]string{"name": name, "content": content}
-	var res nginxTemplateResponse
-	if err := c.doRequest(ctx, http.MethodPut, path, req, &res); err != nil {
+	var tmpl NginxTemplate
+	id, err := c.PutJsonApi(ctx, path, req, &tmpl)
+	if err != nil {
 		return nil, err
 	}
-	return &res.Template, nil
+	tmpl.ID = int64(id)
+	return &tmpl, nil
 }
 
 func (c *Client) DeleteNginxTemplate(ctx context.Context, serverID, templateID int) error {
-	path := fmt.Sprintf("/servers/%d/nginx/templates/%d", serverID, templateID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/nginx/templates/%d", serverID, templateID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }

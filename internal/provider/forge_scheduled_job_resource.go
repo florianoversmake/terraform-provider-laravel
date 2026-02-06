@@ -170,11 +170,18 @@ func (r *ForgeScheduledJobResource) Create(ctx context.Context, req resource.Cre
 		Command:   plan.Command.ValueString(),
 		Frequency: plan.Frequency.ValueString(),
 		User:      plan.User.ValueString(),
-		Minute:    plan.Minute.ValueString(),
-		Hour:      plan.Hour.ValueString(),
-		Day:       plan.Day.ValueString(),
-		Month:     plan.Month.ValueString(),
-		Weekday:   plan.Weekday.ValueString(),
+	}
+
+	// For custom frequency, build cron expression from individual fields
+	if strings.EqualFold(plan.Frequency.ValueString(), "custom") {
+		cron := fmt.Sprintf("%s %s %s %s %s",
+			plan.Minute.ValueString(),
+			plan.Hour.ValueString(),
+			plan.Day.ValueString(),
+			plan.Month.ValueString(),
+			plan.Weekday.ValueString(),
+		)
+		payload.Cron = &cron
 	}
 
 	scheduledJob, err := r.client.CreateJob(ctx, int(plan.ServerID.ValueInt64()), payload)
@@ -200,7 +207,7 @@ func (r *ForgeScheduledJobResource) Create(ctx context.Context, req resource.Cre
 	}
 
 	plan.Status = types.StringValue(scheduledJob.Status)
-	plan.CreatedAt = types.StringValue(scheduledJob.CreatedAt)
+	plan.CreatedAt = types.StringPointerValue(scheduledJob.CreatedAt)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -232,7 +239,7 @@ func (r *ForgeScheduledJobResource) Read(ctx context.Context, req resource.ReadR
 	}
 
 	state.Status = types.StringValue(scheduledJob.Status)
-	state.CreatedAt = types.StringValue(scheduledJob.CreatedAt)
+	state.CreatedAt = types.StringPointerValue(scheduledJob.CreatedAt)
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -306,7 +313,7 @@ func (r *ForgeScheduledJobResource) ImportState(ctx context.Context, req resourc
 	}
 
 	stateModel.Status = types.StringValue(scheduledJob.Status)
-	stateModel.CreatedAt = types.StringValue(scheduledJob.CreatedAt)
+	stateModel.CreatedAt = types.StringPointerValue(scheduledJob.CreatedAt)
 
 	diags := resp.State.Set(ctx, stateModel)
 	resp.Diagnostics.Append(diags...)

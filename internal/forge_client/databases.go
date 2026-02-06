@@ -19,47 +19,43 @@ type CreateDatabaseRequest struct {
 	Password string `json:"password,omitempty"`
 }
 
-type databaseResponse struct {
-	Database Database `json:"database"`
-}
-
-type databasesResponse struct {
-	Databases []Database `json:"databases"`
-}
-
 func (c *Client) CreateDatabase(ctx context.Context, serverID int, req CreateDatabaseRequest) (*Database, error) {
-	path := fmt.Sprintf("/servers/%d/databases", serverID)
-	var res databaseResponse
-	if err := c.doRequest(ctx, http.MethodPost, path, req, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/database/schemas", serverID))
+	var db Database
+	id, err := c.PostJsonApi(ctx, path, req, &db)
+	if err != nil {
 		return nil, err
 	}
-	return &res.Database, nil
+	db.ID = int64(id)
+	return &db, nil
 }
 
 func (c *Client) SyncDatabase(ctx context.Context, serverID int) error {
-	path := fmt.Sprintf("/servers/%d/databases/sync", serverID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/database/schemas/sync", serverID))
 	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
 }
 
 func (c *Client) ListDatabases(ctx context.Context, serverID int) ([]Database, error) {
-	path := fmt.Sprintf("/servers/%d/databases", serverID)
-	var res databasesResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/database/schemas", serverID))
+	items, err := c.GetJsonApiListAll(ctx, path)
+	if err != nil {
 		return nil, err
 	}
-	return res.Databases, nil
+	return unmarshalList(items, func(d *Database, id int64) { d.ID = id })
 }
 
 func (c *Client) GetDatabase(ctx context.Context, serverID, databaseID int) (*Database, error) {
-	path := fmt.Sprintf("/servers/%d/databases/%d", serverID, databaseID)
-	var res databaseResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/database/schemas/%d", serverID, databaseID))
+	var db Database
+	id, err := c.GetJsonApi(ctx, path, &db)
+	if err != nil {
 		return nil, err
 	}
-	return &res.Database, nil
+	db.ID = int64(id)
+	return &db, nil
 }
 
 func (c *Client) DeleteDatabase(ctx context.Context, serverID, databaseID int) error {
-	path := fmt.Sprintf("/servers/%d/databases/%d", serverID, databaseID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/database/schemas/%d", serverID, databaseID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }

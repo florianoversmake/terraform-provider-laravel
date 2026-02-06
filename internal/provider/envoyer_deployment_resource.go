@@ -3,9 +3,12 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"terraform-provider-laravel/internal/envoyer_client"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -15,6 +18,7 @@ import (
 
 // Ensure DeploymentResource satisfies the expected interfaces.
 var _ resource.Resource = &EnvoyerDeploymentResource{}
+var _ resource.ResourceWithImportState = &EnvoyerDeploymentResource{}
 
 // EnvoyerDeploymentResourceModel defines the schema data model for the server.
 type EnvoyerDeploymentResourceModel struct {
@@ -242,4 +246,40 @@ func (r *EnvoyerDeploymentResource) Delete(ctx context.Context, req resource.Del
 		return
 	}
 
+}
+
+// ImportState imports an existing deployment into Terraform state.
+// Import ID format: project_id/deployment_id.
+func (r *EnvoyerDeploymentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	idParts := strings.Split(req.ID, "/")
+	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Invalid import ID",
+			"Import ID must be in the format: project_id/deployment_id",
+		)
+		return
+	}
+
+	projectID, err := strconv.ParseInt(idParts[0], 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Invalid project ID",
+			fmt.Sprintf("Could not parse project ID: %s", err.Error()),
+		)
+		return
+	}
+
+	deploymentID, err := strconv.ParseInt(idParts[1], 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Invalid deployment ID",
+			fmt.Sprintf("Could not parse deployment ID: %s", err.Error()),
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), projectID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), deploymentID)...)
+	// Set a default value for 'from' since it's required but we don't know the original value
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("from"), "branch")...)
 }

@@ -20,39 +20,57 @@ type Command struct {
 	UserName        string `json:"user_name"`
 }
 
-type commandResponse struct {
-	Command Command `json:"command"`
-	Output  string  `json:"output,omitempty"`
-}
-
-type commandsResponse struct {
-	Commands []Command `json:"commands"`
+type CommandOutput struct {
+	Output string `json:"output"`
 }
 
 type ExecuteCommandRequest struct {
 	Command string `json:"command"`
 }
 
-func (c *Client) ExecuteSiteCommand(ctx context.Context, serverID, siteID int, cmd string) error {
-	path := fmt.Sprintf("/servers/%d/sites/%d/commands", serverID, siteID)
+func (c *Client) ExecuteSiteCommand(ctx context.Context, serverID, siteID int, cmd string) (*Command, error) {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/commands", serverID, siteID))
 	req := ExecuteCommandRequest{Command: cmd}
-	return c.doRequest(ctx, http.MethodPost, path, req, nil)
+	var command Command
+	id, err := c.PostJsonApi(ctx, path, req, &command)
+	if err != nil {
+		return nil, err
+	}
+	command.ID = int64(id)
+	return &command, nil
 }
 
 func (c *Client) ListSiteCommands(ctx context.Context, serverID, siteID int) ([]Command, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/commands", serverID, siteID)
-	var res commandsResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/commands", serverID, siteID))
+	items, err := c.GetJsonApiListAll(ctx, path)
+	if err != nil {
 		return nil, err
 	}
-	return res.Commands, nil
+	return unmarshalList(items, func(c *Command, id int64) { c.ID = id })
 }
 
-func (c *Client) GetSiteCommand(ctx context.Context, serverID, siteID, commandID int) (*Command, string, error) {
-	path := fmt.Sprintf("/servers/%d/sites/%d/commands/%d", serverID, siteID, commandID)
-	var res commandResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &res); err != nil {
-		return nil, "", err
+func (c *Client) GetSiteCommand(ctx context.Context, serverID, siteID, commandID int) (*Command, error) {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/commands/%d", serverID, siteID, commandID))
+	var cmd Command
+	id, err := c.GetJsonApi(ctx, path, &cmd)
+	if err != nil {
+		return nil, err
 	}
-	return &res.Command, res.Output, nil
+	cmd.ID = int64(id)
+	return &cmd, nil
+}
+
+func (c *Client) GetSiteCommandOutput(ctx context.Context, serverID, siteID, commandID int) (string, error) {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/commands/%d/output", serverID, siteID, commandID))
+	var output CommandOutput
+	_, err := c.GetJsonApi(ctx, path, &output)
+	if err != nil {
+		return "", err
+	}
+	return output.Output, nil
+}
+
+func (c *Client) DeleteSiteCommand(ctx context.Context, serverID, siteID, commandID int) error {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/sites/%d/commands/%d", serverID, siteID, commandID))
+	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }

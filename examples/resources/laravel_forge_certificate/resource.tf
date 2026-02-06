@@ -24,6 +24,7 @@ resource "tls_self_signed_cert" "example" {
 resource "laravel_forge_certificate" "example" {
   server_id = 1234
   site_id   = 1234
+  domain_id = 5678
 
   key         = tls_private_key.ed25519-example.private_key_pem
   certificate = tls_self_signed_cert.example.cert_pem

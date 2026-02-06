@@ -165,7 +165,7 @@ func (r *ForgeDeploymentSettingsResource) Read(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Error reading site", err.Error())
 		return
 	}
-	state.QuickDeploy = types.BoolValue(site.QuickDeploy)
+	state.QuickDeploy = types.BoolPointerValue(site.QuickDeploy)
 
 	// Get deployment script
 	script, err := r.client.GetDeploymentScript(ctx, serverID, siteID)
@@ -295,7 +295,7 @@ func (r *ForgeDeploymentSettingsResource) ImportState(ctx context.Context, req r
 		resp.Diagnostics.AddError("Error reading site", err.Error())
 		return
 	}
-	state.QuickDeploy = types.BoolValue(site.QuickDeploy)
+	state.QuickDeploy = types.BoolPointerValue(site.QuickDeploy)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

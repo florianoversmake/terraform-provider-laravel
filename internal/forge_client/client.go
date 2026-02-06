@@ -6,15 +6,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
-const DefaultBaseURL = "https://forge.laravel.com/api/v1"
+const DefaultBaseURL = "https://forge.laravel.com/api"
 
 // ResponseFormat represents the expected format of an API response.
 type ResponseFormat string
@@ -245,6 +247,7 @@ type Client struct {
 	httpClient    *http.Client
 	baseURL       string
 	ForgeAPIToken string
+	Organization  string // Organization slug for the new API (required for org-scoped endpoints)
 
 	// Configurable retry settings
 	MaxRetries int           // Maximum number of retries after receiving a 429
@@ -257,6 +260,11 @@ type Client struct {
 	// Cleanup ticker for cache maintenance
 	cleanupTicker *time.Ticker
 	cleanupDone   chan bool
+
+	// Debug / observability
+	DebugLog     *log.Logger  // If set, logs each outgoing HTTP request
+	RequestCount atomic.Int64 // Counts actual HTTP requests (not cache hits)
+	CacheHits    atomic.Int64 // Counts cache hits
 }
 
 // NewClient creates a new Forge API client.
@@ -266,7 +274,7 @@ func NewClient(ForgeAPIToken string) *Client {
 		baseURL:       DefaultBaseURL,
 		ForgeAPIToken: ForgeAPIToken,
 		// Set default retry values
-		MaxRetries: 6,
+		MaxRetries: 100,
 		RetryDelay: 10 * time.Second,
 		// Default cache configuration (disabled by default)
 		cacheConfig: CacheConfig{
@@ -342,6 +350,18 @@ func (c *Client) startCleanupRoutine() {
 // WithBaseURL sets a custom base URL for the API.
 func (c *Client) WithBaseURL(baseURL string) *Client {
 	c.baseURL = strings.TrimSuffix(baseURL, "/")
+	return c
+}
+
+// WithDebugLog enables debug logging for all HTTP requests.
+func (c *Client) WithDebugLog(logger *log.Logger) *Client {
+	c.DebugLog = logger
+	return c
+}
+
+// WithOrganization sets the organization slug for org-scoped API endpoints.
+func (c *Client) WithOrganization(org string) *Client {
+	c.Organization = org
 	return c
 }
 
@@ -503,6 +523,10 @@ func (c *Client) doRequestInternal(ctx context.Context, method, path string, in 
 	// Try to get the response from cache first (unless force refresh is requested)
 	if isCacheable && !reqOpts.forceRefresh {
 		if cachedItem, found := c.cache.Get(cacheKey); found {
+			c.CacheHits.Add(1)
+			if c.DebugLog != nil {
+				c.DebugLog.Printf("← CACHE HIT %s %s (hits: %d)", method, path, c.CacheHits.Load())
+			}
 			// We have a valid cached response
 			return &Response{
 				StatusCode: cachedItem.StatusCode,
@@ -559,6 +583,10 @@ func (c *Client) doRequestInternal(ctx context.Context, method, path string, in 
 		}
 
 		// Execute the request
+		c.RequestCount.Add(1)
+		if c.DebugLog != nil {
+			c.DebugLog.Printf("→ %s %s (request #%d)", method, reqURL.String(), c.RequestCount.Load())
+		}
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			select {
@@ -570,7 +598,7 @@ func (c *Client) doRequestInternal(ctx context.Context, method, path string, in 
 		}
 
 		bodyBytes, err := io.ReadAll(resp.Body)
-		resp.Body.Close() // Close immediately to avoid resource leak
+		_ = resp.Body.Close() // Close immediately to avoid resource leak
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}
@@ -582,6 +610,10 @@ func (c *Client) doRequestInternal(ctx context.Context, method, path string, in 
 			Body:       bodyBytes,
 		}
 
+		if c.DebugLog != nil {
+			c.DebugLog.Printf("← %s %s → %d (%d bytes)", method, path, resp.StatusCode, len(bodyBytes))
+		}
+
 		// Handle 429 (Too Many Requests) with automatic throttling
 		if resp.StatusCode == http.StatusTooManyRequests {
 			if attempt < maxRetries {
@@ -591,6 +623,9 @@ func (c *Client) doRequestInternal(ctx context.Context, method, path string, in 
 					if seconds, err := strconv.Atoi(ra); err == nil {
 						delay = time.Duration(seconds) * time.Second
 					}
+				}
+				if c.DebugLog != nil {
+					c.DebugLog.Printf("⏳ 429 rate limited on %s %s, attempt %d/%d, waiting %s", method, path, attempt+1, maxRetries, delay)
 				}
 				// Wait for the delay or until the context is cancelled
 				select {

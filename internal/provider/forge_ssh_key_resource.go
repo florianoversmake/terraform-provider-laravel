@@ -137,10 +137,11 @@ func (r *ForgeSSHKeyResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	// Build the CreateSSHKeyRequest payload.
+	user := plan.Username.ValueString()
 	payload := forge_client.CreateSSHKeyRequest{
-		Name:     plan.Name.ValueString(),
-		Key:      trimmedKey,
-		Username: plan.Username.ValueString(),
+		Name: plan.Name.ValueString(),
+		Key:  trimmedKey,
+		User: &user,
 	}
 
 	// Call CreateSSHKey on the client using the provided server_id.
@@ -153,7 +154,7 @@ func (r *ForgeSSHKeyResource) Create(ctx context.Context, req resource.CreateReq
 	// Update plan state with response values.
 	plan.ID = types.Int64Value(sshKey.ID)
 	plan.Name = types.StringValue(sshKey.Name)
-	plan.Username = types.StringValue(sshKey.Username)
+	plan.Username = types.StringValue(sshKey.User)
 	plan.Status = types.StringValue(sshKey.Status)
 	plan.CreatedAt = types.StringValue(sshKey.CreatedAt)
 
@@ -176,7 +177,7 @@ func (r *ForgeSSHKeyResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 
 	state.Name = types.StringValue(sshKey.Name)
-	state.Username = types.StringValue(sshKey.Username)
+	state.Username = types.StringValue(sshKey.User)
 	state.ServerID = types.Int64Value(state.ServerID.ValueInt64())
 	state.ID = types.Int64Value(sshKey.ID)
 	state.Status = types.StringValue(sshKey.Status)
@@ -244,7 +245,7 @@ func (r *ForgeSSHKeyResource) ImportState(ctx context.Context, req resource.Impo
 	stateModel.ServerID = types.Int64Value(serverID)
 	stateModel.Key = types.StringUnknown()
 	stateModel.Name = types.StringValue(key.Name)
-	stateModel.Username = types.StringValue(key.Username)
+	stateModel.Username = types.StringValue(key.User)
 	stateModel.Status = types.StringValue(key.Status)
 	stateModel.CreatedAt = types.StringValue(key.CreatedAt)
 

@@ -119,7 +119,7 @@ func (d *ForgeCredentialsDataSource) Read(ctx context.Context, req datasource.Re
 	for _, c := range filteredCredentials {
 		credentialModels = append(credentialModels, ForgeCredentialModel{
 			ID:   types.Int64Value(c.ID),
-			Type: types.StringValue(c.Type),
+			Type: types.StringValue(c.Provider),
 			Name: types.StringValue(c.Name),
 		})
 	}
@@ -145,7 +145,7 @@ func filterForgeCredentials(credentials []forge_client.Credential, filters []Fil
 					match = false
 				}
 			case "type":
-				if !matchesFilter(c.Type, f.Values) {
+				if !matchesFilter(c.Provider, f.Values) {
 					match = false
 				}
 			default:

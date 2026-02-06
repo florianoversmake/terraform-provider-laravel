@@ -3,12 +3,12 @@
 page_title: "laravel_forge_certificate_signing_request_installation Resource - laravel"
 subcategory: ""
 description: |-
-  Forge certificate signing request installation resource. This resource allows you to install a certificate signing request on a server in Forge.
+  Forge certificate signing request installation resource. This resource allows you to install a certificate on a domain in Forge.
 ---
 
 # laravel_forge_certificate_signing_request_installation (Resource)
 
-Forge certificate signing request installation resource. This resource allows you to install a certificate signing request on a server in Forge.
+Forge certificate signing request installation resource. This resource allows you to install a certificate on a domain in Forge.
 
 ## Example Usage
 
@@ -16,6 +16,7 @@ Forge certificate signing request installation resource. This resource allows yo
 resource "laravel_forge_certificate_signing_request" "example" {
   server_id = 1234
   site_id   = 1234
+  domain_id = 5678
   domain    = "example.com"
 
   country      = "US"
@@ -33,11 +34,11 @@ resource "cloudflare_origin_ca_certificate" "example" {
 }
 
 resource "laravel_forge_certificate_signing_request_installation" "example" {
-  certificate_signing_request_id = laravel_forge_certificate_signing_request.example.id
-  server_id                      = 1234
-  site_id                        = 1234
-  certificate                    = cloudflare_origin_ca_certificate.example.certificate
-  add_intermediates              = true
+  domain_id         = 5678
+  server_id         = 1234
+  site_id           = 1234
+  certificate       = cloudflare_origin_ca_certificate.example.certificate
+  add_intermediates = true
 }
 ```
 
@@ -47,7 +48,7 @@ resource "laravel_forge_certificate_signing_request_installation" "example" {
 ### Required
 
 - `certificate` (String) The certificate to install.
-- `certificate_signing_request_id` (Number) The ID of the certificate signing request.
+- `domain_id` (Number) The ID of the domain record to install the certificate on.
 - `server_id` (Number) The ID of the server the certificate signing request is associated with.
 - `site_id` (Number) The ID of the site the certificate signing request is associated with.
 

@@ -29,47 +29,43 @@ type CreateDaemonRequest struct {
 	StopSignal   string `json:"stopsignal"`
 }
 
-type DaemonResponse struct {
-	Daemon Daemon `json:"daemon"`
-}
-
 func (c *Client) CreateDaemon(ctx context.Context, serverID int, req CreateDaemonRequest) (*Daemon, error) {
-	path := fmt.Sprintf("/servers/%d/daemons", serverID)
-	var resp DaemonResponse
-	if err := c.doRequest(ctx, http.MethodPost, path, req, &resp); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/daemons", serverID))
+	var daemon Daemon
+	id, err := c.PostJsonApi(ctx, path, req, &daemon)
+	if err != nil {
 		return nil, err
 	}
-	return &resp.Daemon, nil
-}
-
-type daemonsResponse struct {
-	Daemons []Daemon `json:"daemons"`
+	daemon.ID = int64(id)
+	return &daemon, nil
 }
 
 func (c *Client) ListDaemons(ctx context.Context, serverID int) ([]Daemon, error) {
-	path := fmt.Sprintf("/servers/%d/daemons", serverID)
-	var resp daemonsResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/daemons", serverID))
+	items, err := c.GetJsonApiListAll(ctx, path)
+	if err != nil {
 		return nil, err
 	}
-	return resp.Daemons, nil
+	return unmarshalList(items, func(d *Daemon, id int64) { d.ID = id })
 }
 
 func (c *Client) GetDaemon(ctx context.Context, serverID, daemonID int) (*Daemon, error) {
-	path := fmt.Sprintf("/servers/%d/daemons/%d", serverID, daemonID)
-	var resp DaemonResponse
-	if err := c.doRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
+	path := c.orgPath(fmt.Sprintf("/servers/%d/daemons/%d", serverID, daemonID))
+	var daemon Daemon
+	id, err := c.GetJsonApi(ctx, path, &daemon)
+	if err != nil {
 		return nil, err
 	}
-	return &resp.Daemon, nil
+	daemon.ID = int64(id)
+	return &daemon, nil
 }
 
 func (c *Client) DeleteDaemon(ctx context.Context, serverID, daemonID int) error {
-	path := fmt.Sprintf("/servers/%d/daemons/%d", serverID, daemonID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/daemons/%d", serverID, daemonID))
 	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 }
 
 func (c *Client) RestartDaemon(ctx context.Context, serverID, daemonID int) error {
-	path := fmt.Sprintf("/servers/%d/daemons/%d/restart", serverID, daemonID)
+	path := c.orgPath(fmt.Sprintf("/servers/%d/daemons/%d/restart", serverID, daemonID))
 	return c.doRequest(ctx, http.MethodPost, path, nil, nil)
 }

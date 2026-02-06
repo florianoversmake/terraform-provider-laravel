@@ -46,7 +46,8 @@ provider "laravel" {
 - `envoyer_base_url` (String) Optional override of the Envoyer API base URL (defaults to `https://envoyer.io/api`).
 - `envoyer_env_key` (String, Sensitive) Optional override of the Envoyer env-lock key.
 - `forge_api_token` (String, Sensitive) Forge API token (Bearer token). Required if using Forge resources/data sources.
-- `forge_base_url` (String) Optional override of the Forge API base URL (defaults to `https://forge.laravel.com/api/v1`).
+- `forge_base_url` (String) Optional override of the Forge API base URL (defaults to `https://forge.laravel.com/api`).
+- `forge_organization` (String) The organization slug for Laravel Forge. Required for all Forge API operations.
 - `max_retries` (Number) Maximum number of retries for failed API requests. Default is 3.
 - `request_timeout` (Number) Timeout for API requests in seconds. Default is 30 seconds.
 - `retry_delay` (Number) Delay between retries in seconds. Default is 5 seconds.
