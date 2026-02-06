@@ -100,7 +100,7 @@ func (r *ForgeSiteResource) Schema(ctx context.Context, req resource.SchemaReque
 			},
 			"domain": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "The domain name for the site.",
+				MarkdownDescription: "The domain name for the site. Use a bare name or `.on-forge.com` suffix for Forge-managed domains, or a full domain for custom domains.",
 			},
 			"project_type": schema.StringAttribute{
 				Required:            true,
@@ -201,15 +201,14 @@ func (r *ForgeSiteResource) Create(ctx context.Context, req resource.CreateReque
 	webDir := plan.Directory.ValueString()
 	domain := plan.Domain.ValueString()
 
-	// Determine domain_mode based on the domain
-	// If the domain ends with .forge.run or contains no dots, use "on-forge"
-	// Otherwise use "custom" for user's own domain
+	// Determine domain_mode based on the domain.
+	// Bare names (no dots) and .on-forge.com suffixes use "on-forge" mode.
+	// Everything else uses "custom" mode for user's own domain.
 	domainMode := "custom"
 	siteName := domain
-	if strings.HasSuffix(domain, ".forge.run") {
+	if strings.HasSuffix(domain, ".on-forge.com") {
 		domainMode = "on-forge"
-		// Extract just the subdomain part (remove .forge.run)
-		siteName = strings.TrimSuffix(domain, ".forge.run")
+		siteName = strings.TrimSuffix(domain, ".on-forge.com")
 	} else if !strings.Contains(domain, ".") {
 		// Single word without dots - treat as forge subdomain
 		domainMode = "on-forge"
@@ -238,7 +237,7 @@ func (r *ForgeSiteResource) Create(ctx context.Context, req resource.CreateReque
 
 	// Update plan state with response values, converting API formats to Terraform formats.
 	plan.ID = types.Int64Value(site.ID)
-	plan.Domain = types.StringValue(site.Name)
+	// Keep plan.Domain - the API may return a different domain (e.g., "example.on-forge.com")
 	// Keep plan.ProjectType - the API may return different values (e.g., "php" -> "custom")
 
 	// Handle aliases - ensure we return empty list, not null
@@ -288,7 +287,7 @@ func (r *ForgeSiteResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
-	state.Domain = types.StringValue(site.Name)
+	// Keep state.Domain - the API may return a different domain (e.g., "example.on-forge.com")
 	// Keep state.ProjectType - the API may return different values (e.g., "php" -> "custom")
 
 	// Handle aliases - ensure we return empty list, not null
@@ -349,10 +348,10 @@ func (r *ForgeSiteResource) Update(ctx context.Context, req resource.UpdateReque
 
 	// Update state with new values.
 	// Keep plan values for fields that the API transforms differently:
+	// - plan.Domain (user's config vs API's canonical domain)
 	// - plan.Directory (user's "/public" vs API's full path)
 	// - plan.PHPVersion (user's "php83" vs API's "PHP 8.3")
 	// - plan.ProjectType (already preserved from plan)
-	plan.Domain = types.StringValue(site.Name)
 
 	// Handle aliases - ensure we return empty list, not null
 	if site.Aliases == nil {
