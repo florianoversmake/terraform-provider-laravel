@@ -4,6 +4,7 @@ BREAKING CHANGES:
 
 * provider: New required `forge_organization` attribute. Most Forge API operations now require an organization slug.
 * provider: `forge_base_url` default changed from `https://forge.laravel.com/api/v1` to `https://forge.laravel.com/api`.
+* resource/laravel_forge_server: `name` attribute now requires replacement (`RequiresReplace`). The new API no longer supports in-place server renaming.
 * resource/laravel_forge_certificate: New required `domain_id` attribute. Certificates are now managed per domain record instead of per site. Removed `active`, `domain`, `existing` attributes. `created_at` changed from Number to String.
 * resource/laravel_forge_certificate_signing_request: New required `domain_id` attribute. Removed `active`, `existing` attributes. `created_at` changed from Number to String.
 * resource/laravel_forge_certificate_signing_request_installation: Replaced `certificate_signing_request_id` with `domain_id` attribute.
@@ -28,9 +29,20 @@ NEW TERRAFORM MODULES:
 * tf-test/modules/forge: Reusable Terraform module for creating Forge servers with optional sites and workers.
 * tf-test/modules/envoyer: Reusable Terraform module for creating Envoyer projects with servers and deployment hooks.
 
+BUG FIXES:
+
+* resource/laravel_forge_server: `size` attribute now properly resolves Forge numeric IDs back to human-readable codes (e.g., `"t3.small"`) via `GetSizeCodeByID`. Prevents perpetual diffs when the API returns a numeric ID instead of the user-configured code.
+* resource/laravel_forge_server: `revoked` attribute now handles `null` API responses. The server struct field changed from `bool` to `*bool` to properly deserialize JSON `null` values (defaults to `false` when null).
+* resource/laravel_forge_server: `region` in `ImportState` now resolves the human-readable region name to its code (via `GetRegionIDByName`) instead of storing the raw name, preventing diffs on the first plan after import.
+* resource/laravel_forge_server: `size` in `ImportState` now resolves Forge numeric size IDs to human-readable codes (via `GetSizeCodeByID`) instead of storing the raw value.
+* resource/laravel_forge_server: `php_version` can now be updated in-place without server replacement. Changing `php_version` installs the new version, then sets it as the CLI and site default. Previously changes were silently ignored in `Update`.
+* resource/laravel_forge_server: Removed broken `UpdateServer` call (`PUT /servers/{id}`) which is no longer supported by the new API. The `Update` function now only handles PHP version changes via dedicated endpoints.
+* data-source/laravel_forge_servers: `revoked` attribute now handles `null` API responses (pointer dereference).
+
 ENHANCEMENTS:
 
 * All data sources now automatically paginate through all results using cursor-based pagination. Previously, list endpoints only returned the first page (default 30 items).
+* resource/laravel_forge_server: Added in-place PHP version update support via install + CLI/site default workflow.
 * resource/laravel_envoyer_deployment: Added import support (format: project_id/deployment_id).
 * Migrated entire Forge API client from deprecated v1 API to new organization-scoped JSON:API format.
 * Most API endpoints now use organization-scoped paths (`/orgs/{org}/...`).

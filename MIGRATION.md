@@ -48,6 +48,14 @@ This document tracks the progress of migrating the Laravel Forge Terraform Provi
 - [x] **tf-test/forge** - Example usage with dev overrides
 - [x] **tf-test/envoyer** - Example usage with dev overrides
 
+### Bug Fixes (Post-Migration)
+
+- [x] **Size resolution** - Added `GetSizeCodeByID` method to convert Forge numeric size IDs back to human-readable codes. Applied in Create, Read, and ImportState.
+- [x] **Revoked nullable** - Changed `Server.Revoked` from `bool` to `*bool` to handle JSON `null` values. Updated Create, Read, ImportState, and data source.
+- [x] **Region in ImportState** - Import now resolves region name to code via `GetRegionIDByName` instead of storing raw name.
+- [x] **php_version in-place update** - Implemented full PHP version update workflow in `Update`: install new version → wait for install → set CLI default → set site default. Added `UpdatePHPCLIVersion`, `UpdatePHPSiteVersion`, `IsPHPVersionInstalled`, `WaitForPHPVersionInstalled`, `PHPVersionToDotted`, `PHPDottedToForgeVersion` client methods.
+- [x] **Server Update endpoint removed** - The new API no longer supports `PUT /servers/{id}`. The `Update` function was rewritten to remove the broken `UpdateServer()` call. PHP version changes use separate `PUT /php/cli-version` and `PUT /php/site-version` endpoints. The `name` attribute now requires server replacement (`RequiresReplace`) since there is no rename endpoint in the new API.
+
 ### Import Support Added
 
 - [x] **EnvoyerDeploymentResource** - Added ImportState (format: project_id/deployment_id)

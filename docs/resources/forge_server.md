@@ -67,7 +67,7 @@ resource "laravel_forge_server" "example" {
 - `disk_size` (Number)
 - `ip_address` (String)
 - `network` (List of Number) An array of server IDs that the server should be able to connect to.
-- `php_version` (String)
+- `php_version` (String) The PHP version for the server. Changing this will install the new version and set it as the CLI and site default. Valid values are php84, php83, php82, php81, php80, php74, etc.
 - `private_ip_address` (String)
 - `recipe_id` (Number) An optional ID of a recipe to run after provisioning.
 - `region` (String)

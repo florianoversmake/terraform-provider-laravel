@@ -110,6 +110,22 @@ func (c *Client) GetSizeByID(ctx context.Context, providerSlug string, sizeID in
 	return c.GetProviderSize(ctx, provider.ID, sizeID)
 }
 
+// GetSizeCodeByID converts a Forge size ID (or code) back to its human-readable code.
+// If sizeIDOrCode is already a non-numeric string (e.g., "t3.small"), it is returned as-is.
+// If it is numeric, it is looked up via the provider's sizes endpoint.
+func (c *Client) GetSizeCodeByID(ctx context.Context, providerSlug string, sizeIDOrCode string) (string, error) {
+	sizeIDInt, err := strconv.ParseInt(sizeIDOrCode, 10, 64)
+	if err != nil {
+		// Not a numeric ID, assume it's already a code
+		return sizeIDOrCode, nil //nolint:nilerr
+	}
+	size, err := c.GetSizeByID(ctx, providerSlug, sizeIDInt)
+	if err != nil {
+		return "", err
+	}
+	return size.Code, nil
+}
+
 // GetRegionIDByName returns the region code for a region name and provider.
 // This is a convenience method that wraps GetRegionByName.
 func (c *Client) GetRegionIDByName(ctx context.Context, providerSlug, regionName string) (string, error) {

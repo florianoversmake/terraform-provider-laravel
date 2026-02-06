@@ -2,10 +2,22 @@ package forge_client
 
 import (
 	"context"
+	"log"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
+)
+
+var (
+	sharedOrgClient     *Client
+	sharedOrgClientOnce sync.Once
+
+	sharedNoOrgClient     *Client
+	sharedNoOrgClientOnce sync.Once
+
+	sharedLogger = log.New(os.Stderr, "[forge] ", log.Lmicroseconds)
 )
 
 func getIntegrationClient(t *testing.T) *Client {
@@ -20,7 +32,13 @@ func getIntegrationClient(t *testing.T) *Client {
 		t.Skip("FORGE_ORG not set")
 	}
 
-	return NewClient(apiKey).WithOrganization(org)
+	sharedOrgClientOnce.Do(func() {
+		sharedOrgClient = NewClient(apiKey).WithCache(NewMemoryCache()).WithDebugLog(sharedLogger).WithOrganization(org)
+	})
+	t.Cleanup(func() {
+		t.Logf("HTTP requests: %d, cache hits: %d", sharedOrgClient.RequestCount.Load(), sharedOrgClient.CacheHits.Load())
+	})
+	return sharedOrgClient
 }
 
 // getIntegrationClientWithoutOrg returns a client without organization scope.
@@ -32,7 +50,13 @@ func getIntegrationClientWithoutOrg(t *testing.T) *Client {
 		t.Skip("FORGE_API_KEY not set")
 	}
 
-	return NewClient(apiKey)
+	sharedNoOrgClientOnce.Do(func() {
+		sharedNoOrgClient = NewClient(apiKey).WithCache(NewMemoryCache()).WithDebugLog(sharedLogger)
+	})
+	t.Cleanup(func() {
+		t.Logf("HTTP requests: %d, cache hits: %d", sharedNoOrgClient.RequestCount.Load(), sharedNoOrgClient.CacheHits.Load())
+	})
+	return sharedNoOrgClient
 }
 
 func getServerID(t *testing.T) int {
@@ -235,40 +259,14 @@ func TestGetRegionSizeIDBySize(t *testing.T) {
 	// Uses efficient targeted API calls (providers + sizes)
 	client := getIntegrationClientWithoutOrg(t)
 
-	// First, get sizes to find a valid size code
-	provider, err := client.GetProviderBySlug(context.Background(), "aws")
-	if err != nil {
-		t.Fatalf("GetProviderBySlug failed: %v", err)
-	}
-	sizes, err := client.ListProviderSizes(context.Background(), provider.ID)
-	if err != nil {
-		t.Fatalf("ListProviderSizes failed: %v", err)
-	}
-	if len(sizes) == 0 {
-		t.Skip("No sizes found for AWS provider")
-	}
-
-	// Find a t3.small size
-	var testSize *ProviderSizeInfo
-	for i := range sizes {
-		if sizes[i].Code == "t3.small" {
-			testSize = &sizes[i]
-			break
-		}
-	}
-	if testSize == nil {
-		t.Skip("t3.small size not found for AWS provider")
-	}
-
-	expectedID := strconv.FormatInt(testSize.ID, 10)
-
-	// Now test the lookup by code
+	// Test the lookup by known size code directly — avoids redundant ListProviderSizes call
+	// which would double the paginated API requests and trigger rate limiting timeouts.
 	sizeID, err := client.GetRegionSizeIDBySize(context.Background(), "aws", "eu-west-1", "t3.small")
 	if err != nil {
 		t.Fatalf("GetRegionSizeIDBySize failed: %v", err)
 	}
-	if sizeID != expectedID {
-		t.Errorf("Expected size ID %s, got %s", expectedID, sizeID)
+	if sizeID == "" {
+		t.Fatal("Expected non-empty size ID for t3.small")
 	}
 	t.Logf("Size code t3.small has ID %s", sizeID)
 }

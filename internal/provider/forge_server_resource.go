@@ -114,6 +114,9 @@ func (r *ForgeServerResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 			"name": schema.StringAttribute{
 				Required: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"credential_id": schema.Int64Attribute{
 				Optional: true,
@@ -139,9 +142,10 @@ func (r *ForgeServerResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"php_version": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString("php82"),
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString("php82"),
+				MarkdownDescription: "The PHP version for the server. Changing this will install the new version and set it as the CLI and site default. Valid values are php84, php83, php82, php81, php80, php74, etc.",
 			},
 			"database": schema.StringAttribute{
 				Optional: true,
@@ -446,7 +450,11 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 	plan.SshPort = types.Int32Value(int32(server.SSHPort))
 	plan.Identifier = types.StringValue(server.Identifier)
 	plan.LocalPublicKey = types.StringValue(server.LocalPublicKey)
-	plan.Revoked = types.BoolValue(server.Revoked)
+	if server.Revoked != nil {
+		plan.Revoked = types.BoolValue(*server.Revoked)
+	} else {
+		plan.Revoked = types.BoolValue(false)
+	}
 	plan.IsReady = types.BoolValue(server.IsReady)
 
 	regionId, err := r.client.GetRegionIDByName(ctx, plan.ServerProvider.ValueString(), response.Server.Region)
@@ -457,10 +465,15 @@ func (r *ForgeServerResource) Create(ctx context.Context, req resource.CreateReq
 
 	plan.Region = types.StringValue(regionId)
 
-	// The server.Size from API is already the size code (e.g., "t2.micro")
-	// Use the planned size value which is what the user configured
-	// This avoids issues with API returning different formats
-	// plan.Size is already set from the plan
+	// Resolve size: if the API returned a numeric Forge ID, convert back to code
+	if server.Size != plan.Size.ValueString() {
+		sizeCode, err := r.client.GetSizeCodeByID(ctx, plan.ServerProvider.ValueString(), server.Size)
+		if err != nil {
+			resp.Diagnostics.AddWarning("Could not resolve size code from Forge ID", err.Error())
+		} else {
+			plan.Size = types.StringValue(sizeCode)
+		}
+	}
 
 	// Handle network - ensure we always have a list, never null
 	networkSlice := response.Server.Network
@@ -504,7 +517,11 @@ func (r *ForgeServerResource) Read(ctx context.Context, req resource.ReadRequest
 	state.PrivateIpAddress = types.StringPointerValue(server.PrivateIPAddress)
 	state.SshPort = types.Int32Value(int32(server.SSHPort))
 	state.LocalPublicKey = types.StringValue(server.LocalPublicKey)
-	state.Revoked = types.BoolValue(server.Revoked)
+	if server.Revoked != nil {
+		state.Revoked = types.BoolValue(*server.Revoked)
+	} else {
+		state.Revoked = types.BoolValue(false)
+	}
 	state.IsReady = types.BoolValue(server.IsReady)
 	state.SudoPassword = types.StringValue(state.SudoPassword.ValueString())
 	state.Identifier = types.StringValue(server.Identifier)
@@ -517,9 +534,14 @@ func (r *ForgeServerResource) Read(ctx context.Context, req resource.ReadRequest
 
 	state.Region = types.StringValue(regionId)
 
-	// The server.Size from API may be a size ID or code
-	// Preserve the state value for size since it's read-only after creation
-	// and the API may return it in a different format than originally specified
+	// Resolve size: if the API returned a numeric Forge ID, convert back to code
+	if state.Size.ValueString() != "" && server.Size != state.Size.ValueString() {
+		sizeCode, err := r.client.GetSizeCodeByID(ctx, state.ServerProvider.ValueString(), server.Size)
+		if err == nil {
+			state.Size = types.StringValue(sizeCode)
+		}
+		// else: keep existing state value
+	}
 
 	state.DatabasePassword = types.StringPointerValue(state.DatabasePassword.ValueStringPointer())
 	state.Circle = types.Int64PointerValue(state.Circle.ValueInt64Pointer())
@@ -559,21 +581,77 @@ func (r *ForgeServerResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	updatePayload := forge_client.UpdateServerRequest{
-		Name:             plan.Name.ValueString(),
-		IPAddress:        plan.IpAddress.ValueString(),
-		PrivateIPAddress: plan.PrivateIpAddress.ValueString(),
-	}
-
-	server, err := r.client.UpdateServer(ctx, int(plan.ID.ValueInt64()), updatePayload)
-	if err != nil {
-		resp.Diagnostics.AddError("Error updating server", err.Error())
+	var state ForgeServerResourceModel
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	plan.Name = types.StringValue(server.Name)
-	plan.IpAddress = types.StringPointerValue(server.IPAddress)
-	plan.PrivateIpAddress = types.StringPointerValue(server.PrivateIPAddress)
+	serverID := int(plan.ID.ValueInt64())
+
+	// Handle PHP version change: install new version, then set as CLI + site default.
+	// The new Forge API does not support a general server update endpoint (PUT /servers/{id}).
+	// Instead, PHP version changes are handled via dedicated endpoints.
+	if plan.PhpVersion.ValueString() != state.PhpVersion.ValueString() {
+		newPHP := plan.PhpVersion.ValueString()
+		dottedVersion := forge_client.PHPVersionToDotted(newPHP)
+
+		// Step 1: Check if the version is already installed.
+		installed, err := r.client.IsPHPVersionInstalled(ctx, serverID, newPHP)
+		if err != nil {
+			resp.Diagnostics.AddError("Error checking installed PHP versions", err.Error())
+			return
+		}
+
+		// Step 2: Install the version if not already present.
+		if !installed {
+			err = r.client.InstallPHPVersion(ctx, serverID, newPHP)
+			if err != nil {
+				resp.Diagnostics.AddError("Error installing PHP version", err.Error())
+				return
+			}
+
+			// Wait for installation to complete.
+			err = r.client.WaitForPHPVersionInstalled(ctx, serverID, newPHP)
+			if err != nil {
+				resp.Diagnostics.AddError("Error waiting for PHP version installation", err.Error())
+				return
+			}
+		}
+
+		// Step 3: Set as default CLI version.
+		err = r.client.UpdatePHPCLIVersion(ctx, serverID, dottedVersion)
+		if err != nil {
+			resp.Diagnostics.AddError("Error updating PHP CLI version", err.Error())
+			return
+		}
+
+		// Step 4: Set as default site version.
+		err = r.client.UpdatePHPSiteVersion(ctx, serverID, dottedVersion)
+		if err != nil {
+			resp.Diagnostics.AddError("Error updating PHP site version", err.Error())
+			return
+		}
+
+		plan.PhpVersion = types.StringValue(newPHP)
+	}
+
+	// Re-read the server to get the latest state after any updates.
+	server, err := r.client.GetServer(ctx, serverID)
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading server after update", err.Error())
+		return
+	}
+
+	plan.IsReady = types.BoolValue(server.IsReady)
+
+	// Preserve creation-only values from state — these are never returned by
+	// the GET endpoint and must not be left as unknown after apply.
+	plan.SudoPassword = state.SudoPassword
+	plan.DatabasePassword = state.DatabasePassword
+	plan.MeilisearchPassword = state.MeilisearchPassword
+	plan.ProvisionCommand = state.ProvisionCommand
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -617,6 +695,25 @@ func (r *ForgeServerResource) ImportState(ctx context.Context, req resource.Impo
 		return
 	}
 
+	// Resolve region code from name during import
+	regionId, err := r.client.GetRegionIDByName(ctx, server.Provider, server.Region)
+	if err != nil {
+		resp.Diagnostics.AddWarning("Could not resolve region ID", err.Error())
+		regionId = server.Region // fall back to raw value
+	}
+
+	// Resolve size code from Forge ID during import
+	sizeCode, err := r.client.GetSizeCodeByID(ctx, server.Provider, server.Size)
+	if err != nil {
+		sizeCode = server.Size // fall back to raw value
+	}
+
+	// Handle nullable revoked field
+	revoked := false
+	if server.Revoked != nil {
+		revoked = *server.Revoked
+	}
+
 	state := ForgeServerResourceModel{
 		ID:                  types.Int64Value(server.ID),
 		ServerProvider:      types.StringValue(server.Provider),
@@ -633,14 +730,14 @@ func (r *ForgeServerResource) ImportState(ctx context.Context, req resource.Impo
 		IpAddress:           types.StringPointerValue(server.IPAddress),
 		PrivateIpAddress:    types.StringPointerValue(server.PrivateIPAddress),
 		SshPort:             types.Int32Value(int32(server.SSHPort)),
-		Region:              types.StringValue(server.Region),
-		Size:                types.StringValue(server.Size),
+		Region:              types.StringValue(regionId),
+		Size:                types.StringValue(sizeCode),
 		DiskSize:            types.Int32Null(),
 		AwsVpcID:            types.StringNull(),
 		AwsSubnetID:         types.StringNull(),
 		AwsVpcName:          types.StringNull(),
 		LocalPublicKey:      types.StringValue(server.LocalPublicKey),
-		Revoked:             types.BoolValue(server.Revoked),
+		Revoked:             types.BoolValue(revoked),
 		IsReady:             types.BoolValue(server.IsReady),
 		SudoPassword:        types.StringValue(""),
 		DatabasePassword:    types.StringValue(""),

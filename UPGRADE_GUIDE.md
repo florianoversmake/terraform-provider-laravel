@@ -149,6 +149,28 @@ After upgrading, you may need to update your Terraform state for resources that 
 
 2. **Recreate resources:** For certificate resources, it may be simpler to destroy and recreate them with the new `domain_id` attribute.
 
+### `laravel_forge_server`
+
+**`name` now requires server replacement.** The new API no longer supports `PUT /servers/{id}`, so server names cannot be changed in-place. Changing the `name` attribute will now trigger a destroy-and-recreate. If you need to rename a server without recreating it, do so directly in the Forge dashboard and update your Terraform configuration to match.
+
+**`php_version` can now be updated in-place.** Previously, changing `php_version` on an existing server was silently ignored (the `Update` function did not send it to the API). It now performs a full PHP version update workflow:
+
+1. Installs the new PHP version on the server (if not already installed)
+2. Waits for the installation to complete
+3. Sets it as the default CLI version
+4. Sets it as the default site version
+
+```hcl
+resource "laravel_forge_server" "example" {
+  # Changing php_version now updates in-place (no server replacement needed)
+  php_version = "php84"  # was "php82"
+}
+```
+
+> **Note:** This is an async operation that may take several minutes. The provider will poll until the installation completes.
+
+**`size` and `region` are now properly resolved on import.** When importing a server, `region` is converted from the human-readable name (e.g., `"Ireland"`) to its code (e.g., `"eu-west-1"`), and `size` is converted from the Forge numeric ID to its code (e.g., `"t3.small"`). This prevents perpetual diffs on the first plan after import.
+
 ## API Endpoint Changes Reference
 
 | Old Path (v1) | New Path |

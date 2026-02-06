@@ -31,7 +31,7 @@ type Server struct {
 	LocalPublicKey   string  `json:"local_public_key"` //undocumented
 	BlackfireStatus  *string `json:"blackfire_status"`
 	PapertrailStatus *string `json:"papertrail_status"`
-	Revoked          bool    `json:"revoked"`
+	Revoked          *bool   `json:"revoked"`
 	CreatedAt        string  `json:"created_at"`
 	IsReady          bool    `json:"is_ready"`
 	Tags             []Tag   `json:"tags"` //undocumented

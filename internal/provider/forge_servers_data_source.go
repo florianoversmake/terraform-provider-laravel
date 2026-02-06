@@ -145,7 +145,7 @@ func (d *ForgeServersDataSource) Read(ctx context.Context, req datasource.ReadRe
 			DatabaseType: types.StringValue(s.DatabaseType),
 			SSHPort:      types.Int64Value(int64(s.SSHPort)),
 			IsReady:      types.BoolValue(s.IsReady),
-			Revoked:      types.BoolValue(s.Revoked),
+			Revoked:      types.BoolValue(s.Revoked != nil && *s.Revoked),
 			CreatedAt:    types.StringValue(s.CreatedAt),
 		}
 		if s.IPAddress != nil {
